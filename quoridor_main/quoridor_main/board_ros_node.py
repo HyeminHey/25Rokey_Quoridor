@@ -140,6 +140,8 @@ def main(args=None):
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+    except RuntimeError:
+        node.get_logger().error(f"now ai turn 300 line error : {e}")
     except Exception as e:
         node.get_logger().error(f"An error occurred: {e}")
 

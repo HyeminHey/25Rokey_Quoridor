@@ -1,0 +1,6 @@
+# Request
+int32[] added
+---
+# Response
+int32[] ai_cmd
+

@@ -1,0 +1,10 @@
+# Goal
+qulido_robot_msgs/MotionSequence sequence
+
+---
+# Result
+bool success
+
+---
+# Feedback
+string current_step

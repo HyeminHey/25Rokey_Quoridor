@@ -29,17 +29,10 @@ class BoardRosNode(Node):
         super().__init__('board_ros_node')
 
         self.board = board
-        # self.orig_pose = Coord(6, 3)
         self.screen = board.screen
         self.last_request = []
-        # try:
-        #     # Pygame이 초기화되었으므로 Color 객체 사용 가능
-        #     self.wall_color = cfg.WALL_COLOR # config 사용 가능
-        # except:
-        #     self.wall_color = None # Pygame 초기화 실패 시 대비
 
-        # #안돌리고 가능
-        ##subprocessing
+        # #subprocessing
         # try:
         #     script_path = os.path.join(
         #         os.path.dirname(__file__),   # 한 단계만 올라감
@@ -66,6 +59,7 @@ class BoardRosNode(Node):
 
         self.pub = self.create_publisher(String, '/game_finished', 10)
 
+
     def listener_callback(self, msg):
             level = msg.data
             self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
@@ -74,19 +68,16 @@ class BoardRosNode(Node):
             self.board.reset_AI()
             
     
-    
     def board_state_callback(self, request:AiCompute, response):
         # self.get_logger().info(f"type(self.board) = {type(self.board)}")
 
         # self.get_logger().info("Received AiCompute request")
         self.last_request = list(request.added)
         # self.get_logger().info(f"Received added: {self.last_request}")
-        # action = self.board_state_to_actions(self.last_request)
         if self.last_request:
                 act_suc = self.board.apply_player_action(self.last_request)
 
-
-        #finished
+        # finished
         if type(self.board.won_player) == int:
             response.ai_cmd = [0, 0, 0]
             msg = String()
@@ -97,13 +88,10 @@ class BoardRosNode(Node):
             self.pub.publish(msg)
             self.get_logger().info(f"Game Finished Topic published. Winner is {msg.data}")            
             
-
-
-
+            # initializing
             core.init()
             pygame.init()
 
-            # clock = pygame.time.Clock()
             pygame.display.set_mode((800, 600))
             pygame.display.set_caption(cfg.GAME_TITLE)
             screen = pygame.display.get_surface()
@@ -116,35 +104,9 @@ class BoardRosNode(Node):
             self.board = board
             self.screen = self.board.screen
             self.last_request = []
+
             return response
-            # ####initialize
-            # pygame.quit()
 
-            # core.init()
-
-            # try:
-            #     pygame.init()
-            #     dummy_screen = pygame.Surface((1, 1)) 
-
-            # except Exception as e:
-            #     log(f"[ERROR] Pygame initialization failed: {e}")
-            #     rclpy.shutdown()
-            #     return
-
-            # initial_board = Board(screen=dummy_screen)
-            # core.BOARD = initial_board
-            # log('System initialized OK')
-            # self.board = initial_board
-            # # self.orig_pose = Coord(6, 3)
-            # self.screen = self.board.screen
-            # self.last_request = []
-            # try:
-            #     # Pygame이 초기화되었으므로 Color 객체 사용 가능
-            #     self.wall_color = cfg.WALL_COLOR # config 사용 가능
-            # except:
-            #     self.wall_color = None 
-
-            # return response
 
         if act_suc:
             # log(f"ai_action = {self.board.ai_action}")
@@ -159,7 +121,6 @@ class BoardRosNode(Node):
                 ai_r = ai_act.dest.row
                 ai_c = ai_act.dest.col
             res_list = [ai_t, ai_r, ai_c]
-            # response.ai_cmd = list(res_list)
             response.ai_cmd = res_list
             # self.get_logger().info(f"Responding ai_cmd: {response.ai_cmd}")
 
@@ -168,38 +129,6 @@ class BoardRosNode(Node):
         elif not act_suc:
             response.ai_cmd = [0, 1, 1]
             return response
-
-    # def board_state_to_actions(self, player_move_state, last_pawn_positions=None):
-
-    #     action = None
-    #     t = player_move_state[0]
-    #     r = player_move_state[1]
-    #     c = player_move_state[2]
-
-    #     log(f"type = {t}, Coord = ({r}, {c})")
-    #     if abs(t) == 1:
-    #         if t == 1:
-    #             from_ = self.orig_pose
-    #             to_ = Coord(r, c)
-    #             action = ActionMovePawn(from_, to_)
-    #             self.orig_pose = Coord(r, c)
-    #             log(f"transformed to ActionMovePawn : {action}")
-
-    #     elif abs(t) == 2:
-    #         horiz = True if t == -2 else False  
-    #         wall = Wall(
-    #             coord=Coord(r, c), 
-    #             horiz=horiz,
-    #             screen=self.screen,   # __init__에서 저장한 screen 객체
-    #             board=self.board,     # 현재 노드의 board 객체
-    #             color=self.wall_color # 정의한 색상
-    #         )            
-    #         action = ActionPlaceWall(wall)
-    #         log(f"transformed to ActionPlaceWall : {action}")
-
-
-    #     return action
-
 
 
 def main(args=None):
@@ -217,12 +146,6 @@ def main(args=None):
     board = core.BOARD = Board(screen)
     board.draw()
     log('System initialized OK')
-
-    # dummy_screen = pygame.Surface((1, 1)) 
-
-    # initial_board = Board(screen=dummy_screen)
-    # core.BOARD = initial_board
-    # node = BoardRosNode(initial_board)
 
     node = BoardRosNode(board)
     
@@ -254,26 +177,7 @@ def main(args=None):
         print(f"Exception: {e}")
 
     finally:
+        pygame.quit()
         print("Shutting down...")
         node.destroy_node()
         rclpy.shutdown()
-
-
-
-
-
-
-
-
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    except RuntimeError:
-        node.get_logger().error(f"now ai turn 300 line error : {e}")
-    except Exception as e:
-        node.get_logger().error(f"An error occurred: {e}")
-
-    pygame.quit()
-    node.destroy_node()
-    rclpy.shutdown()

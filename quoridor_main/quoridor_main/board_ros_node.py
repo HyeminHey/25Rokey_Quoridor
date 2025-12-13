@@ -2,6 +2,7 @@
 import subprocess
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Int32
 
 from quoridor_main.ai.action import ActionMovePawn, ActionPlaceWall
 from quoridor_main.entities.board import Board
@@ -53,6 +54,27 @@ class BoardRosNode(Node):
         self.srv = self.create_service(AiCompute, '/ai_agent/get_robot_move', self.board_state_callback)
         self.get_logger().info("AI service server ready: /ai_agent/get_robot_move")
 
+        self.sub = self.create_subscription(
+                    Int32,
+                    '/game_level',
+                    self.listener_callback,
+                    10)
+        self.sub
+        log("Level Subscriber Node is Running. Waiting for /game_level messages...")
+
+
+
+    def listener_callback(self, msg):
+            """
+            새로운 메시지가 수신될 때마다 호출되는 콜백 함수입니다.
+            """
+            level = msg.data
+            self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
+            cfg.set_level(level)
+            log(f"level = {cfg.LEVEL}")
+            
+    
+    
     def board_state_callback(self, request:AiCompute, response):
         # self.get_logger().info(f"type(self.board) = {type(self.board)}")
 

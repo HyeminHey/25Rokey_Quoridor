@@ -65,14 +65,11 @@ class BoardRosNode(Node):
 
 
     def listener_callback(self, msg):
-            """
-            새로운 메시지가 수신될 때마다 호출되는 콜백 함수입니다.
-            """
             level = msg.data
             self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
             cfg.set_level(level)
             log(f"level = {cfg.LEVEL}")
-            self.board.set_AI()
+            self.board.reset_AI()
             
     
     
@@ -87,7 +84,7 @@ class BoardRosNode(Node):
                 act_suc = self.board.apply_player_action(self.last_request)
 
         #finished (player0가 이겼을 때만 발동될거임 아마)
-        if act_suc is None:
+        if act_suc == "f":
             response.ai_cmd = [0, 0, 0]
             return response
 

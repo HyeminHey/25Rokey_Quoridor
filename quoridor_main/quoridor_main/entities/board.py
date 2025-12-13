@@ -79,10 +79,12 @@ class Board(Drawable):
         self.walls: Set[Wall] = set()  # Walls placed on board
         self.draw_players_info()
         self._AI = []
-
-    def set_AI(self):
-        # self._AI += [AI(self.pawns[0])]
         self._AI += [AI(self.pawns[1], level=cfg.LEVEL)]
+
+
+    def reset_AI(self):
+        # self._AI += [AI(self.pawns[0])]
+        self._AI[0] = [AI(self.pawns[1], level=cfg.LEVEL)]
 
     def regenerate_board(self, c_color, cb_color, c_width=cfg.CELL_WIDTH, c_height=cfg.CELL_HEIGHT):
         """ Regenerate board colors and get_cell positions.
@@ -184,74 +186,69 @@ class Board(Drawable):
         self._state = None
 
 
-    ################################################################################
-    # 필요 없는 코드
-    def onMouseClick(self, x, y):
-        """ Dispatch mouse click Event
-        """
-        cell = self.which_cell(x, y) # 셀 선택
-        if cell is not None: # 셀 선택이 되었다면
-            pawn = self.current_player # 폰을 현재 플레이어로 설정
-            if not pawn.can_move(cell.coord): # 폰이 셀의 좌표로 움직일 수 없다면 리턴
-                return                
+    
+    # # 필요 없는 코드
+    # def onMouseClick(self, x, y):
+    #     """ Dispatch mouse click Event
+    #     """
+    #     cell = self.which_cell(x, y) # 셀 선택
+    #     if cell is not None: # 셀 선택이 되었다면
+    #         pawn = self.current_player # 폰을 현재 플레이어로 설정
+    #         if not pawn.can_move(cell.coord): # 폰이 셀의 좌표로 움직일 수 없다면 리턴
+    #             return                
 
-            self.do_action(ActionMovePawn(pawn.coord, cell.coord)) # 폰이 셀의 좌표로 움직일 수 있다면 doaction / from,to전달
-            cell.set_focus(False) # 마우스 하이라이트 끔
-            self.draw() # 보드 전체 다시 draw
+    #         self.do_action(ActionMovePawn(pawn.coord, cell.coord)) # 폰이 셀의 좌표로 움직일 수 있다면 doaction / from,to전달
+    #         cell.set_focus(False) # 마우스 하이라이트 끔
+    #         self.draw() # 보드 전체 다시 draw
 
-            if self.finished:
-                self.draw_player_info(self.player)
-                return
+    #         if self.finished:
+    #             self.draw_player_info(self.player)
+    #             return
 
-            self.next_player() # 플레이어 변경
-            self.draw_players_info() # 폰 그리고 리턴
-            return
+    #         self.next_player() # 플레이어 변경
+    #         self.draw_players_info() # 폰 그리고 리턴
+    #         return
 
-        wall = self.wall(x, y) # wall로 인자 설정하고 new_wall로 Wall 객체 반환하게 됨
-        if not wall:
-            return
+    #     wall = self.wall(x, y) # wall로 인자 설정하고 new_wall로 Wall 객체 반환하게 됨
+    #     if not wall:
+    #         return
 
-        if self.can_put_wall(wall): # 벽을 놓을 수 있는지 판단하고 putWall (self.walls에 저장됨)
-            self.do_action(ActionPlaceWall(wall))
-            self.next_player()
-            self.draw_players_info()
+    #     if self.can_put_wall(wall): # 벽을 놓을 수 있는지 판단하고 putWall (self.walls에 저장됨)
+    #         self.do_action(ActionPlaceWall(wall))
+    #         self.next_player()
+    #         self.draw_players_info()
 
-    def onMouseMotion(self, x, y):
-        """ Get mouse motion event and acts accordingly
-        """
-        if not self.rect.collidepoint(x, y):
-            return
+    # def onMouseMotion(self, x, y):
+    #     """ Get mouse motion event and acts accordingly
+    #     """
+    #     if not self.rect.collidepoint(x, y):
+    #         return
 
-        for row in self.board:
-            for cell in row:
-                cell.onMouseMotion(x, y)
+    #     for row in self.board:
+    #         for cell in row:
+    #             cell.onMouseMotion(x, y)
 
-        if self.which_cell(x, y):
-            if self.mouse_wall:
-                self.mouse_wall = None
-                self.draw()
+    #     if self.which_cell(x, y):
+    #         if self.mouse_wall:
+    #             self.mouse_wall = None
+    #             self.draw()
 
-            return  # The focus was on a get_cell, we're done
+    #         return  # The focus was on a get_cell, we're done
 
-        if not self.current_player.walls:
-            return  # The current player has run out of walls. We're done
+    #     if not self.current_player.walls:
+    #         return  # The current player has run out of walls. We're done
 
-        wall = self.wall(x, y)
-        if not wall:
-            return
+    #     wall = self.wall(x, y)
+    #     if not wall:
+    #         return
 
-        if self.can_put_wall(wall):
-            self.mouse_wall = wall
-            self.draw()
-            wall.draw()
-    ################################################################################
+    #     if self.can_put_wall(wall):
+    #         self.mouse_wall = wall
+    #         self.draw()
+    #         wall.draw()
 
-    ################################################################################    
     def apply_player_action(self, req_list):
-        """
-        사람(외부 시스템)이 낸 수를 적용
-        action: ActionMovePawn | ActionPlaceWall
-        """
+
         ##변환하는 함수 boardrosnode에 있는거 가져오기
         t = req_list[0]
         r = req_list[1]
@@ -272,7 +269,7 @@ class Board(Drawable):
                 self.draw_player_info(self.player)
                 log("finished")
                 # reset하는 함수 만들어서 그거 트리거로 써야할까?
-                return None
+                return "f"
             
             self.next_player()
             self.draw_players_info()

@@ -314,7 +314,8 @@ class Board(Drawable):
             if self.finished:
                 self.draw_player_info(self.player)
                 log("finished")
-                return
+                # reset하는 함수 만들어서 그거 트리거로 써야할까?
+                return None
             
             self.next_player()
             self.draw_players_info()

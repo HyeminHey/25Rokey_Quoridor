@@ -93,7 +93,35 @@ class BoardRosNode(Node):
             elif self.board.won_player == 1:
                 msg.data = "AI"
             self.pub.publish(msg)
-            self.get_logger().info(f"Game Finished Topic published. Winner is {msg.data}")
+            self.get_logger().info(f"Game Finished Topic published. Winner is {msg.data}")            
+            
+            ####initialize
+            pygame.quit()
+
+            core.init()
+
+            try:
+                pygame.init()
+                dummy_screen = pygame.Surface((1, 1)) 
+
+            except Exception as e:
+                log(f"[ERROR] Pygame initialization failed: {e}")
+                rclpy.shutdown()
+                return
+
+            initial_board = Board(screen=dummy_screen)
+            core.BOARD = initial_board
+            log('System initialized OK')
+            self.board = initial_board
+            self.orig_pose = Coord(6, 3)
+            self.screen = self.board.screen
+            self.last_request = []
+            try:
+                # Pygame이 초기화되었으므로 Color 객체 사용 가능
+                self.wall_color = cfg.WALL_COLOR # config 사용 가능
+            except:
+                self.wall_color = None 
+
             return response
 
         if act_suc:

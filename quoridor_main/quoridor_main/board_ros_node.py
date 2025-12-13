@@ -53,30 +53,42 @@ class BoardRosNode(Node):
         self.get_logger().info("AI service server ready: /ai_agent/get_robot_move")
 
     def board_state_callback(self, request:AiCompute, response):
-        self.get_logger().info("Received AiCompute request")
+        # self.get_logger().info(f"type(self.board) = {type(self.board)}")
+
+        # self.get_logger().info("Received AiCompute request")
         self.last_request = list(request.added)
-        self.get_logger().info(f"Received added: {self.last_request}")
-        action = self.board_state_to_actions(self.last_request)
-        if action:
-                self.board.apply_player_action(action)
+        # self.get_logger().info(f"Received added: {self.last_request}")
+        # action = self.board_state_to_actions(self.last_request)
+        if self.last_request:
+                act_suc = self.board.apply_player_action(self.last_request)
 
-        log(f"ai_action = {self.board.ai_action}")
+        #finished
+        if act_suc is None:
+            response = [0, 0, 0]
+            return response
 
-        ai_act = self.board.ai_action
-        if isinstance(ai_act, ActionPlaceWall):
-            ai_t = -2 if ai_act.horiz else 2
-            ai_r = ai_act.coord.row
-            ai_c = ai_act.coord.col
-        elif isinstance(ai_act, ActionMovePawn):
-            ai_t = -1
-            ai_r = ai_act.dest.row
-            ai_c = ai_act.dest.col
-        res_list = [ai_t, ai_r, ai_c]
-        # response.ai_cmd = list(res_list)
-        response.ai_cmd = res_list
-        self.get_logger().info(f"Responding ai_cmd: {response.ai_cmd}")
+        if act_suc:
+            # log(f"ai_action = {self.board.ai_action}")
 
-        return response
+            ai_act = self.board.ai_action
+            if isinstance(ai_act, ActionPlaceWall):
+                ai_t = -2 if ai_act.horiz else 2
+                ai_r = ai_act.coord.row
+                ai_c = ai_act.coord.col
+            elif isinstance(ai_act, ActionMovePawn):
+                ai_t = -1
+                ai_r = ai_act.dest.row
+                ai_c = ai_act.dest.col
+            res_list = [ai_t, ai_r, ai_c]
+            # response.ai_cmd = list(res_list)
+            response.ai_cmd = res_list
+            # self.get_logger().info(f"Responding ai_cmd: {response.ai_cmd}")
+
+            return response
+        # error, try again
+        elif not act_suc:
+            response = [0, 1, 1]
+            return response
 
     def board_state_to_actions(self, player_move_state, last_pawn_positions=None):
 

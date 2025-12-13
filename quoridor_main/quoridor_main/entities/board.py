@@ -290,87 +290,138 @@ class Board(Drawable):
     #     #     self.computing = True
     #     #     self.computer_move()       
     
-    def apply_player_action(self, action):
+    def apply_player_action(self, req_list):
         """
         사람(외부 시스템)이 낸 수를 적용
         action: ActionMovePawn | ActionPlaceWall
         """
-        log(f"now turn player {self.player}")
-
-        # 1) 현재 턴이 AI이면 예외
-        if self.current_player.AI:
-            raise RuntimeError("now is AI turn")
-
-        # 2) action이 없으면 아무것도 안 함
-        if action is None:
-            log("action is None")
-            return
-
-        # 3) 말 이동 처리 (action.dest 는 Coord 여야 함)
-        if isinstance(action, ActionMovePawn):
-            dest = action.dest  # Coord
-            pawn = self.current_player
-
-            # 유효한 Coord인지와 보드 범위 검사 (안전성)
-            if not isinstance(dest, Coord) or not self.in_range(dest):
-                log(f"Invalid move dest: {dest}")
-                return
-
-            # pawn.can_move 은 Coord를 기대하도록 사용
-            if not pawn.can_move(dest):
-                log("pawn can't move to dst")
-                return
-
-            # 실제 반영
-            self.do_action(action)
+        ##변환하는 함수 boardrosnode에 있는거 가져오기
+        t = req_list[0]
+        r = req_list[1]
+        c = req_list[2]
+        
+        if t == 1:
+            cell = Cell(self.screen, self, coord=Coord(r, c))
+            if cell is not None:
+                pawn = self.current_player
+                if not pawn.can_move(cell.coord):
+                    log("pawn can't move to that coord")
+                    return False
+            
+            self.do_action(ActionMovePawn(pawn.coord, cell.coord))
             self.draw()
 
-            # 승리 판단
             if self.finished:
-                log("finished")
                 self.draw_player_info(self.player)
+                log("finished")
                 return
-
-            # 턴 변경 및 화면 갱신
+            
             self.next_player()
             self.draw_players_info()
-            log(f"now turn player {self.player}")
-            return
+            # 만약 다음이 AI라면 AI 턴 실행 
+            if self.current_player.AI:
+                self.computing = True
+                self.computer_move()  
+                return True
+            return False
+        
+        if abs(t) == 2:
+            if t == 2:
+                horiz = False
+            elif t == -2:
+                horiz = True
+            wall = self.new_wall(Coord(r, c), horiz)
+            if not wall:
+                return False
+            if self.can_put_wall(wall):
+                self.do_action(ActionPlaceWall(wall))
+                if self.finished:
+                    self.draw_player_info(self.player)
+                    log("finished")
+                    return
+                self.next_player()
+                self.draw_players_info()
+                # 만약 다음이 AI라면 AI 턴 실행 
+                if self.current_player.AI:
+                    self.computing = True
+                    self.computer_move()  
+                    return True
+                return False
 
-        # 4) 벽 설치 처리 (action.coord 는 Coord 여야 함)
-        if isinstance(action, ActionPlaceWall):
-            coord = action.coord  # Coord
+        # # 1) 현재 턴이 AI이면 예외
+        # if self.current_player.AI:
+        #     raise RuntimeError("now is AI turn")
 
-            # 안전성 검사
-            if not isinstance(coord, Coord) or not self.in_range(coord):
-                log(f"Invalid wall coord: {coord}")
-                return
+        # # 2) action이 없으면 아무것도 안 함
+        # if action is None:
+        #     log("action is None")
+        #     return
 
-            # self.wall(x,y) 은 (col,row) 인덱스(정수)를 기대하므로 coord을 풀어서 전달
-            wall_obj = self.wall(coord.col, coord.row)
-            if not wall_obj:
-                log("no wall_obj")
-                return
+        # # 3) 말 이동 처리 (action.dest 는 Coord 여야 함)
+        # if isinstance(action, ActionMovePawn):
+        #     dest = action.dest  # Coord
+        #     pawn = self.current_player
 
-            if not self.can_put_wall(wall_obj):
-                log("can't put wall")
-                return
+        #     # 유효한 Coord인지와 보드 범위 검사 (안전성)
+        #     if not isinstance(dest, Coord) or not self.in_range(dest):
+        #         log(f"Invalid move dest: {dest}")
+        #         return
 
-            self.do_action(action)
-            # 플레이어의 벽 수는 do_action 내에서 처리됨
-            if self.finished:
-                log("finished")
-                self.draw_player_info(self.player)
-                return
+        #     # pawn.can_move 은 Coord를 기대하도록 사용
+        #     if not pawn.can_move(dest):
+        #         log("pawn can't move to dst")
+        #         return
 
-            self.next_player()
-            self.draw_players_info()
-            log(f"now turn player {self.player}")
-            return
+        #     # 실제 반영
+        #     self.do_action(action)
+        #     self.draw()
 
-        # 알 수 없는 action 타입이면 무시 또는 로그
-        log(f"Unknown action type received: {type(action)}")
-        return
+        #     # 승리 판단
+        #     if self.finished:
+        #         log("finished")
+        #         self.draw_player_info(self.player)
+        #         return
+
+        #     # 턴 변경 및 화면 갱신
+        #     self.next_player()
+        #     self.draw_players_info()
+        #     log(f"now turn player {self.player}")
+        #     return
+
+        # # 4) 벽 설치 처리 (action.coord 는 Coord 여야 함)
+        # if isinstance(action, ActionPlaceWall):
+        #     coord = action.coord  # Coord
+
+        #     # 안전성 검사
+        #     if not isinstance(coord, Coord) or not self.in_range(coord):
+        #         log(f"Invalid wall coord: {coord}")
+        #         return
+
+        #     # self.wall(x,y) 은 (col,row) 인덱스(정수)를 기대하므로 coord을 풀어서 전달
+        #     wall_obj = self.wall(coord.col, coord.row)
+        #     if not wall_obj:
+        #         log("no wall_obj")
+        #         return
+
+        #     if not self.can_put_wall(wall_obj):
+        #         log("can't put wall")
+        #         return
+
+        #     self.do_action(action)
+        #     # 플레이어의 벽 수는 do_action 내에서 처리됨
+        #     if self.finished:
+        #         log("finished")
+        #         self.draw_player_info(self.player)
+        #         return
+
+        #     self.next_player()
+        #     self.draw_players_info()
+        #     log(f"now turn player {self.player}")
+        #     return
+
+        # # 알 수 없는 action 타입이면 무시 또는 로그
+        # log(f"Unknown action type received: {type(action)}")
+        # return
 
 
 

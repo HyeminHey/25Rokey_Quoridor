@@ -287,9 +287,11 @@ class Board(Drawable):
             elif t == -2:
                 horiz = True
             wall = self.new_wall(Coord(r, c), horiz)
+            # log(f"can_put_wall? = {self.can_put_wall(wall)}")
             if not wall:
                 return False
-            if self.can_put_wall(wall):
+            avail = self.can_put_wall(wall)
+            if avail:
                 self.do_action(ActionPlaceWall(wall))
                 if self.finished:
                     self.draw_player_info(self.player)
@@ -303,6 +305,9 @@ class Board(Drawable):
                     self.computer_move()  
                     return True
                 return False
+            elif avail == False:
+                log("can't put wall")
+                return None
 
 
     def can_put_wall(self, wall) -> bool:

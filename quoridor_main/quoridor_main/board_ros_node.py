@@ -62,9 +62,9 @@ class BoardRosNode(Node):
         if self.last_request:
                 act_suc = self.board.apply_player_action(self.last_request)
 
-        #finished
+        #finished (player0가 이겼을 때만 발동될거임 아마)
         if act_suc is None:
-            response = [0, 0, 0]
+            response.ai_cmd = [0, 0, 0]
             return response
 
         if act_suc:
@@ -87,7 +87,7 @@ class BoardRosNode(Node):
             return response
         # error, try again
         elif not act_suc:
-            response = [0, 1, 1]
+            response.ai_cmd = [0, 1, 1]
             return response
 
     def board_state_to_actions(self, player_move_state, last_pawn_positions=None):

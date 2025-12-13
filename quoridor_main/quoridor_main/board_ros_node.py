@@ -108,9 +108,7 @@ class BoardRosNode(Node):
             return response
 
 
-        if act_suc:
-            # log(f"ai_action = {self.board.ai_action}")
-
+        if act_suc: # AI movement True
             ai_act = self.board.ai_action
             if isinstance(ai_act, ActionPlaceWall):
                 ai_t = -2 if ai_act.horiz else 2
@@ -125,9 +123,10 @@ class BoardRosNode(Node):
             # self.get_logger().info(f"Responding ai_cmd: {response.ai_cmd}")
 
             return response
+        
         # error, try again
         elif not act_suc:
-            response.ai_cmd = [0, 1, 1]
+            response.ai_cmd = [0, 0, -1]
             return response
 
 

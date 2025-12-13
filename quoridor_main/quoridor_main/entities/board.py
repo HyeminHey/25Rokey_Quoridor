@@ -192,12 +192,13 @@ class Board(Drawable):
         r = req_list[1]
         c = req_list[2]
         
+        # finished->None, etc->False
         if t == 1:
             cell = Cell(self.screen, self, coord=Coord(r, c))
             if cell is not None:
                 pawn = self.current_player
                 if not pawn.can_move(cell.coord):
-                    log("pawn can't move to that coord")
+                    log(f"You can't move to ({cell.coord.row}, {cell.coord.col})")
                     return False
             
             self.do_action(ActionMovePawn(pawn.coord, cell.coord))
@@ -205,10 +206,8 @@ class Board(Drawable):
             
             if self.finished:
                 self.draw_player_info(self.player)
-                log("finished")
                 return None
 
-                
             self.next_player()
             self.draw_players_info()
 
@@ -224,16 +223,19 @@ class Board(Drawable):
                 horiz = False
             elif t == -2:
                 horiz = True
+
             wall = self.new_wall(Coord(r, c), horiz)
             if not wall:
                 return False
+            
             avail = self.can_put_wall(wall)
             if avail:
                 self.do_action(ActionPlaceWall(wall))
+
                 if self.finished:
                     self.draw_player_info(self.player)
-                    log("finished")
-                    return
+                    return None
+                
                 self.next_player()
                 self.draw_players_info()
 
@@ -244,9 +246,9 @@ class Board(Drawable):
 
                 return False
         
-            elif avail == False:
-                log("can't put wall")
-                return None
+            elif not avail:
+                log(f"You can't put wall on ({wall.coord.row}, {wall.coord.col})")
+                return False
 
 
     def can_put_wall(self, wall) -> bool:

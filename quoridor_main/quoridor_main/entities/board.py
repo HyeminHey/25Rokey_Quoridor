@@ -79,6 +79,8 @@ class Board(Drawable):
         self.walls: Set[Wall] = set()  # Walls placed on board
         self.draw_players_info()
         self._AI = []
+
+    def set_AI(self):
         # self._AI += [AI(self.pawns[0])]
         self._AI += [AI(self.pawns[1], level=cfg.LEVEL)]
 

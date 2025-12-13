@@ -72,6 +72,7 @@ class BoardRosNode(Node):
             self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
             cfg.set_level(level)
             log(f"level = {cfg.LEVEL}")
+            self.board.set_AI()
             
     
     

@@ -367,11 +367,11 @@ class Board(Drawable):
         r = pawn.rect
         r.x = self.rect.x + self.rect.width + cfg.PAWN_PADDING
         r.y = (player_num + 1) * (r.height + cfg.PAWN_PADDING)
-        if self.current_player is pawn:
-            pygame.draw.rect(self.screen, cfg.CELL_VALID_COLOR, r, 0)
-            pygame.draw.rect(self.screen, pawn.border_color, r, 2)
-        else:
-            pygame.draw.rect(self.screen, self.color, r, 0)
+        # if self.current_player is pawn:
+        #     pygame.draw.rect(self.screen, cfg.CELL_VALID_COLOR, r, 0)
+        #     pygame.draw.rect(self.screen, pawn.border_color, r, 2) # player0 네모 테두리 그리기
+        # else:
+        #     pygame.draw.rect(self.screen, self.color, r, 0) # player1 네모 배경 그리기
 
         pawn.draw(r)
         rect = pygame.Rect(r.x + 1, r.y + r.h + 3, cfg.GAUGE_WIDTH, cfg.GAUGE_HEIGHT)
@@ -401,10 +401,9 @@ class Board(Drawable):
             x = self.rect.x
             y = self.rect.y + self.rect.height + cfg.PAWN_PADDING
             self.msg(x, y, "Press any key to EXIT")
-            #log 추가
             log(f"player {self.player} win! game finished")
+            # won_player 변수 추가
             self.won_player = self.player
-            log(f"player{self.won_player} won this game!")
 
     def msg(self, x, y, str_, color=cfg.FONT_COLOR, fsize=cfg.FONT_SIZE):
         font = pygame.font.SysFont(None, fsize)

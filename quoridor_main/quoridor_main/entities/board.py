@@ -86,6 +86,11 @@ class Board(Drawable):
     def reset_AI(self):
         # self._AI += [AI(self.pawns[0])]
         self._AI[0] = [AI(self.pawns[1], level=cfg.LEVEL)]
+        
+        # level msg
+        level_erase_rect = pygame.Rect(600, 760, 220, cfg.RULE_SIZE + 10)
+        pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, level_erase_rect, 0)
+        self.msg(600, 760, f"LEVEL : {cfg.LEVEL + 1}", fsize=cfg.RULE_SIZE)
 
     def regenerate_board(self, c_color, cb_color, c_width=cfg.CELL_WIDTH, c_height=cfg.CELL_HEIGHT):
         """ Regenerate board colors and get_cell positions.
@@ -146,6 +151,13 @@ class Board(Drawable):
             else:
                 self.msg(a, b, line, fsize=cfg.RULE_SIZE)
             b += line_gap
+
+        # pawn who? msg
+        self.msg(140, 600, "AI", fsize=cfg.WHO_SIZE) 
+        self.msg(370, 600, "player", fsize=cfg.WHO_SIZE) 
+
+        # level
+        self.msg(600, 760, f"LEVEL : {cfg.LEVEL + 1}", fsize=cfg.RULE_SIZE)
 
     def draw(self):
         """ Draws a squared n x n board, defaults
@@ -401,15 +413,7 @@ class Board(Drawable):
     def draw_player_info(self, player_num):
         """ Draws player pawn at board + padding_offset
         """
-# self, x, y, str_, color=cfg.FONT_COLOR, fsize=cfg.FONT_SIZE
-
-        # MESSAGES
-
-        # pawn who? msg
-        self.msg(140, 600, "AI", fsize=cfg.WHO_SIZE) 
-        self.msg(370, 600, "player", fsize=cfg.WHO_SIZE) 
-
-        
+       
         pawn = self.pawns[player_num]
         # pawn info loc
         if player_num == 0:

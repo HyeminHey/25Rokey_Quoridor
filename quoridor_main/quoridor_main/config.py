@@ -34,6 +34,10 @@ DEF_COLS = 7
 # Number of Walls per player
 NUM_WALLS = 6
 
+# Pawn size
+PAWN_WIDTH = CELL_WIDTH - 20
+PAWN_HEIGHT = CELL_HEIGHT - 20
+
 ### COLORS ###
 # Font Color & SIZE
 FONT_COLOR = Color(0, 10, 50)

@@ -386,15 +386,16 @@ class Board(Drawable):
             pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)
 
         r.x += r.width + 20
-        r.width = 6
+        r.width = 10 # 남은 벽 개수 표현 너비
         pygame.draw.rect(self.screen, cfg.WALL_COLOR, r, 0)
 
+        # 남은 벽 개수 표시하는 위치
         r.x += r.width * 2 + 10
         r.y += r.height // 2 - 5
         r.height = cfg.FONT_SIZE
         r.width *= 3
         pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, r, 0)  # Erases previous number
-        self.msg(r.x, r.y, str(pawn.walls))
+        self.msg(r.x, r.y, f"X {str(pawn.walls)}") # 남은 벽 개수 표시
 
         if self.finished and self.current_player == pawn:
             self.msg(r.x + cfg.PAWN_PADDING, r.y, "PLAYER %i WINS!" % (1 + self.player))
@@ -404,6 +405,8 @@ class Board(Drawable):
             log(f"player {self.player} win! game finished")
             # won_player 변수 추가
             self.won_player = self.player
+        pygame.display.flip()     
+
 
     def msg(self, x, y, str_, color=cfg.FONT_COLOR, fsize=cfg.FONT_SIZE):
         font = pygame.font.SysFont(None, fsize)

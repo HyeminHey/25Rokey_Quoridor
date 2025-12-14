@@ -92,7 +92,7 @@ class BoardRosNode(Node):
             core.init()
             pygame.init()
 
-            pygame.display.set_mode((800, 600))
+            pygame.display.set_mode((1200, 800))
             pygame.display.set_caption(cfg.GAME_TITLE)
             screen = pygame.display.get_surface()
 
@@ -137,7 +137,8 @@ def main(args=None):
     pygame.init()
 
     clock = pygame.time.Clock()
-    pygame.display.set_mode((800, 600))
+    # pygame.display.set_mode((800, 600))
+    pygame.display.set_mode((1200, 800))
     pygame.display.set_caption(cfg.GAME_TITLE)
     screen = pygame.display.get_surface()
 
@@ -151,7 +152,7 @@ def main(args=None):
     try:
         while rclpy.ok():
             # 1. ROS2 메시지 처리 (매우 짧은 시간만 허용)
-            rclpy.spin_once(node, timeout_sec=0.01) # 타임아웃을 더 짧게 설정하여 GUI 응답성 개선
+            rclpy.spin_once(node, timeout_sec=0.01) # 타임아웃을 더 짧게 설정하여 GUI 응답성 개선   
 
             # 2. AI 턴 처리 (백그라운드 스레드)
             if not board.computing and not board.finished:

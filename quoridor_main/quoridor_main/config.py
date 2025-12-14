@@ -67,8 +67,8 @@ PAWN_B_COL = Color(147, 0, 0) # Color(60, 60, 158)  # Blue
 PAWN_BORDER_COL = Color(0, 0, 0) # Color(188, 188, 80)  # Yellow
 
 # Gauge bars
-GAUGE_WIDTH = CELL_WIDTH
-GAUGE_HEIGHT = 10
+GAUGE_WIDTH = CELL_WIDTH * 3
+GAUGE_HEIGHT = 15
 GAUGE_COLOR = Color(5, 0, 153)
 GAUGE_BORDER_COLOR = Color(0, 0, 0)
 

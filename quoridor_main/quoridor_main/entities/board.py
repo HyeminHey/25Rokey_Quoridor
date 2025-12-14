@@ -109,6 +109,44 @@ class Board(Drawable):
         for pawn in self.pawns:
             pawn.cell = self.get_cell(pawn.coord)
 
+        # rule msg
+        RULE_LINES = [
+            "Quoridor – Game Rules",
+            "",
+            "Goal",
+            "Be the first player to move your pawn to the opposite side of the board.",
+            "",
+            "Turn",
+            "On your turn, choose one action:",
+            "- Move your pawn one square (or jump over an opponent if possible), or",
+            "- Place one wall on the board.",
+            "",
+            "Movement",
+            "Pawns move up, down, left, or right.",
+            "If another pawn blocks the way, you may jump over it.",
+            "Diagonal moves are allowed only when a direct jump is blocked by a wall.",
+            "",
+            "Walls",
+            "Each player has a limited number of walls.",
+            "Walls block movement but cannot completely block all paths.",
+            "Every pawn must always have at least one path to its goal.",
+            "",
+            "Winning",
+            "The first player who reaches the goal row wins the game."
+        ]
+        a = 600
+        b = 20
+        line_gap = 25  # 줄 간격
+
+        for line in RULE_LINES:
+            if len(line) < 15:
+                self.msg(a, b, line, fsize=cfg.RULE_SIZE + 3)
+            elif len(line) < 25:
+                self.msg(a, b, line, fsize=cfg.RULE_SIZE + 6)
+            else:
+                self.msg(a, b, line, fsize=cfg.RULE_SIZE)
+            b += line_gap
+
     def draw(self):
         """ Draws a squared n x n board, defaults
         to the standard 9 x 9
@@ -371,46 +409,7 @@ class Board(Drawable):
         self.msg(140, 600, "AI", fsize=cfg.WHO_SIZE) 
         self.msg(370, 600, "player", fsize=cfg.WHO_SIZE) 
 
-        # rule msg
-        RULE_LINES = [
-            "Quoridor – Game Rules",
-            "",
-            "Goal",
-            "Be the first player to move your pawn to the opposite side of the board.",
-            "",
-            "Turn",
-            "On your turn, choose one action:",
-            "- Move your pawn one square (or jump over an opponent if possible), or",
-            "- Place one wall on the board.",
-            "",
-            "Movement",
-            "Pawns move up, down, left, or right.",
-            "If another pawn blocks the way, you may jump over it.",
-            "Diagonal moves are allowed only when a direct jump is blocked by a wall.",
-            "",
-            "Walls",
-            "Each player has a limited number of walls.",
-            "Walls block movement but cannot completely block all paths.",
-            "Every pawn must always have at least one path to its goal.",
-            "",
-            "Winning",
-            "The first player who reaches the goal row wins the game."
-        ]
-        a = 600
-        b = 20
-        line_gap = 25  # 줄 간격
-
-        for line in RULE_LINES:
-            if len(line) < 15:
-                self.msg(a, b, line, fsize=cfg.RULE_SIZE + 3)
-            elif len(line) < 25:
-                self.msg(a, b, line, fsize=cfg.RULE_SIZE + 6)
-            else:
-                self.msg(a, b, line, fsize=cfg.RULE_SIZE)
-            b += line_gap
-
-
-
+        
         pawn = self.pawns[player_num]
         # pawn info loc
         if player_num == 0:
@@ -429,16 +428,26 @@ class Board(Drawable):
         #     pygame.draw.rect(self.screen, self.color, r, 0) # player1 네모 배경 그리기
 
         pawn.draw(r)
-        rect = pygame.Rect(r.x + 1, r.y + r.h + 3, cfg.GAUGE_WIDTH, cfg.GAUGE_HEIGHT)
 
-        if pawn.percent is not None:
-            pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)  # Erases old gauge bar
-            rect.width = int(cfg.GAUGE_WIDTH * pawn.percent)
-            pygame.draw.rect(self.screen, cfg.GAUGE_COLOR, rect, 0)
-            rect.width = cfg.GAUGE_WIDTH
-            pygame.draw.rect(self.screen, cfg.GAUGE_BORDER_COLOR, rect, 1)
-        else:
-            pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)
+        # Gauge
+        rect = pygame.Rect(r.x + 860, r.y + r.h + 35, cfg.GAUGE_WIDTH, cfg.GAUGE_HEIGHT)
+
+        if cfg.LEVEL != 0:
+            if pawn.percent is not None:
+                # AI computing msg
+                self.msg(800, 760, "Now AI Computing", fsize=cfg.RULE_SIZE)
+                pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)  # Erases old gauge bar
+                rect.width = int(cfg.GAUGE_WIDTH * pawn.percent)
+                pygame.draw.rect(self.screen, cfg.GAUGE_COLOR, rect, 0)
+                rect.width = cfg.GAUGE_WIDTH
+                pygame.draw.rect(self.screen, cfg.GAUGE_BORDER_COLOR, rect, 1)
+                if pawn.percent == 1:
+                    # Now AI Computing 메시지 지우기
+                    erase_rect = pygame.Rect(800, 760, 250, cfg.RULE_SIZE + 10)
+                    pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, erase_rect, 0)
+                    pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)
+            else:
+                pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, rect, 0)
 
         r.x += r.width + 20
         r.width = 10 # 남은 벽 개수 표현 너비

@@ -36,12 +36,13 @@ setup(
     entry_points={
         'console_scripts': [
             'game_orchestrator = quoridor_main.game_orchestrator_node:main',
-            'robot_ctrl = quoridor_main.robot_ctrl_node:main',
+            'robot_ctrl_node = quoridor_main.robot_ctrl_node:main',
             'robot_ctrl_client = quoridor_main.robot_ctrl_client:main',
             'speech_service_node = quoridor_main.speech_service_node:main',
             'speech_service_client = quoridor_main.speech_service_client:main',
-            'board_ros = quoridor_main.board_ros_node:main',
+            'board_ros_node = quoridor_main.board_ros_node:main',
             'board_ros_client = quoridor_main.test_cli:main',
+            'detect_node = quoridor_main.detect_board.detection:main',
             
             # 한국어 깨우기 노드
             'wakeup_word_node_korean = quoridor_main.wakeup_word_node_korean:main',

@@ -75,7 +75,9 @@ GAUGE_BORDER_COLOR = Color(0, 0, 0)
 # Other constants
 PAWN_PADDING = 50 # 25  # Pixels right to the board
 
-
+# State Box
+STATE_BOX_COLOR = Color(53, 53, 53)
+STATE_BOX_FONT_SIZE = 100
 class DIR:
     """ Directions
     """

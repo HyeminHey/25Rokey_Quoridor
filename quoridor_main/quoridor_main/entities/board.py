@@ -93,6 +93,11 @@ class Board(Drawable):
         pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, level_erase_rect, 0)
         self.msg(600, 760, f"LEVEL : {cfg.LEVEL + 1}", fsize=cfg.RULE_SIZE)
 
+        # State Box
+        state_rect = pygame.Rect(600, 600, 560, 130)
+        pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+        self.msg(650, 635, "-- Your Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
+
     def regenerate_board(self, c_color, cb_color, c_width=cfg.CELL_WIDTH, c_height=cfg.CELL_HEIGHT):
         """ Regenerate board colors and get_cell positions.
         Must be called on initialization or whenever a screen attribute
@@ -159,6 +164,11 @@ class Board(Drawable):
 
         # level
         self.msg(600, 760, f"LEVEL : {cfg.LEVEL + 1}", fsize=cfg.RULE_SIZE)
+
+        # State Box
+        state_rect = pygame.Rect(600, 600, 560, 130)
+        pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+        self.msg(640, 635, "GAME START!", fsize=cfg.STATE_BOX_FONT_SIZE)
 
     def draw(self):
         """ Draws a squared n x n board, defaults
@@ -240,7 +250,7 @@ class Board(Drawable):
     def apply_player_action(self, req_list):
 
         #erase error log
-        error_erase_rect = pygame.Rect(320, 750, 250, cfg.RULE_SIZE + 10)
+        error_erase_rect = pygame.Rect(300, 740, 280, cfg.RULE_SIZE + 20)
         pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, error_erase_rect, 0)
 
         t = req_list[0]
@@ -255,7 +265,9 @@ class Board(Drawable):
                 if not pawn.can_move(cell.coord):
                     log(f"You can't move to ({cell.coord.row}, {cell.coord.col})")
                     # error msg
-                    self.msg(320, 750, f"You can't move to ({cell.coord.row}, {cell.coord.col})", color=Color(243, 97, 166), fsize=cfg.RULE_SIZE + 6)                    
+                    err_rect = pygame.Rect(310, 745, 235, 30)
+                    pygame.draw.rect(self.screen, Color(255, 255, 255), err_rect, 0)
+                    self.msg(320, 750, f"You can't move to ({cell.coord.row}, {cell.coord.col})", color=Color(0, 0, 0), fsize=cfg.RULE_SIZE + 6)                    
                     return False
             
             self.do_action(ActionMovePawn(pawn.coord, cell.coord))
@@ -268,6 +280,12 @@ class Board(Drawable):
             self.next_player()
             self.draw_players_info()
 
+            # AI Turn
+            # State Box
+            state_rect = pygame.Rect(600, 600, 560, 130)
+            pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+            self.msg(700, 635, "-- AI Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
+            
             if self.current_player.AI:
                 self.computing = True
                 self.computer_move()  
@@ -296,6 +314,12 @@ class Board(Drawable):
                 self.next_player()
                 self.draw_players_info()
 
+                # AI Turn
+                # State Box
+                state_rect = pygame.Rect(600, 600, 560, 130)
+                pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+                self.msg(700, 635, "-- AI Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
+            
                 if self.current_player.AI:
                     self.computing = True
                     self.computer_move()  
@@ -306,7 +330,9 @@ class Board(Drawable):
             elif not avail:
                 log(f"You can't put wall on ({wall.coord.row}, {wall.coord.col})")
                 # error msg
-                self.msg(320, 750, f"You can't put wall on ({wall.coord.row}, {wall.coord.col})", color=Color(243, 97, 166), fsize=cfg.RULE_SIZE + 6)   
+                err_rect = pygame.Rect(310, 745, 260, 30)
+                pygame.draw.rect(self.screen, Color(255, 255, 255), err_rect, 0)
+                self.msg(320, 750, f"You can't put wall on ({wall.coord.row}, {wall.coord.col})", color=Color(0, 0, 0), fsize=cfg.RULE_SIZE + 6)   
                 return False
 
 
@@ -475,14 +501,27 @@ class Board(Drawable):
         pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, r, 0)  # Erases previous number
         self.msg(r.x, r.y, f"X {str(pawn.walls)}") # 남은 벽 개수 표시
 
+        # if self.finished and self.current_player == pawn:
+        #     self.msg(r.x + cfg.PAWN_PADDING, r.y, "PLAYER %i WINS!" % (1 + self.player))
+        #     x = self.rect.x
+        #     y = self.rect.y + self.rect.height + cfg.PAWN_PADDING
+        #     self.msg(x, y, "Press any key to EXIT")
+        #     log(f"player {self.player} win! game finished")
+        #     # won_player 변수 추가
+        #     self.won_player = self.player
         if self.finished and self.current_player == pawn:
-            self.msg(r.x + cfg.PAWN_PADDING, r.y, "PLAYER %i WINS!" % (1 + self.player))
-            x = self.rect.x
-            y = self.rect.y + self.rect.height + cfg.PAWN_PADDING
-            self.msg(x, y, "Press any key to EXIT")
+            # State Box
+            state_rect = pygame.Rect(600, 600, 560, 130)
+            pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+            self.msg(665, 613, "-- Game Over --", fsize=cfg.STATE_BOX_FONT_SIZE - 18)
+            if self.player == 0:
+                self.msg(715, 667, "!! YOU WIN !!", fsize=cfg.STATE_BOX_FONT_SIZE - 20)
+            elif self.player == 1:
+                self.msg(735, 667, "!! AI WIN !!", fsize=cfg.STATE_BOX_FONT_SIZE - 20)
             log(f"player {self.player} win! game finished")
             # won_player 변수 추가
             self.won_player = self.player
+
         pygame.display.flip()     
 
 
@@ -534,6 +573,10 @@ class Board(Drawable):
                 break
 
             self.next_player()
+            # State Box
+            state_rect = pygame.Rect(600, 600, 560, 130)
+            pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+            self.msg(650, 635, "-- Your Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
 
         self.draw()
         self.draw_players_info()

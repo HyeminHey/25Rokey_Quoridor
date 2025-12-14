@@ -61,14 +61,49 @@ class BoardRosNode(Node):
 
 
     def listener_callback(self, msg):
-            level = msg.data
-            self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
-            cfg.set_level(level)
-            log(f"level = {cfg.LEVEL}")
-            self.board.reset_AI()
+        if type(self.board.won_player) == int:
+            # initializing
+            core.init()
+            pygame.init()
+
+            pygame.display.set_mode((1200, 800))
+            pygame.display.set_caption(cfg.GAME_TITLE)
+            screen = pygame.display.get_surface()
+
+            screen.fill(Color(75, 75, 75))
+            board = core.BOARD = Board(screen)
+            board.draw()
+            log('System initialized OK')
+
+            self.board = board
+            self.screen = self.board.screen
+            self.last_request = []
+
+        level = msg.data
+        self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
+        cfg.set_level(level)
+        log(f"level = {cfg.LEVEL}")
+        self.board.reset_AI()
             
     
     def board_state_callback(self, request:AiCompute, response):
+        if type(self.board.won_player) == int:
+            # initializing
+            core.init()
+            pygame.init()
+
+            pygame.display.set_mode((1200, 800))
+            pygame.display.set_caption(cfg.GAME_TITLE)
+            screen = pygame.display.get_surface()
+
+            screen.fill(Color(75, 75, 75))
+            board = core.BOARD = Board(screen)
+            board.draw()
+            log('System initialized OK')
+
+            self.board = board
+            self.screen = self.board.screen
+            self.last_request = []
         # self.get_logger().info(f"type(self.board) = {type(self.board)}")
 
         # self.get_logger().info("Received AiCompute request")
@@ -87,23 +122,6 @@ class BoardRosNode(Node):
                 msg.data = "AI"
             self.pub.publish(msg)
             self.get_logger().info(f"Game Finished Topic published. Winner is {msg.data}")            
-            
-            # initializing
-            core.init()
-            pygame.init()
-
-            pygame.display.set_mode((1200, 800))
-            pygame.display.set_caption(cfg.GAME_TITLE)
-            screen = pygame.display.get_surface()
-
-            screen.fill(Color(75, 75, 75))
-            board = core.BOARD = Board(screen)
-            board.draw()
-            log('System initialized OK')
-
-            self.board = board
-            self.screen = self.board.screen
-            self.last_request = []
 
             return response
 

@@ -34,6 +34,9 @@ DEF_COLS = 7
 # Number of Walls per player
 NUM_WALLS = 6
 
+# Messages Font
+WHO_SIZE = 50
+
 # Pawn size
 PAWN_WIDTH = CELL_WIDTH - 15
 PAWN_HEIGHT = CELL_HEIGHT - 15

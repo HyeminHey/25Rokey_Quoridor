@@ -363,10 +363,23 @@ class Board(Drawable):
     def draw_player_info(self, player_num):
         """ Draws player pawn at board + padding_offset
         """
+# self, x, y, str_, color=cfg.FONT_COLOR, fsize=cfg.FONT_SIZE
+        # pawn who? msg
+        self.msg(140, 600, "AI", fsize=cfg.WHO_SIZE) 
+        self.msg(370, 600, "player", fsize=cfg.WHO_SIZE) 
+
+
         pawn = self.pawns[player_num]
-        r = pawn.rect
-        r.x = self.rect.x + self.rect.width + cfg.PAWN_PADDING
-        r.y = (player_num + 1) * (r.height + cfg.PAWN_PADDING)
+        # pawn info loc
+        if player_num == 0:
+            r = pawn.rect
+            r.x = self.rect.x + self.rect.width + cfg.PAWN_PADDING - 275
+            r.y = (player_num + 1) * (r.height + cfg.PAWN_PADDING) + 565
+        elif player_num == 1:
+            r = pawn.rect
+            r.x = self.rect.x + self.rect.width + cfg.PAWN_PADDING - 530
+            r.y = (player_num + 1) * (r.height + cfg.PAWN_PADDING) + 460
+
         # if self.current_player is pawn:
         #     pygame.draw.rect(self.screen, cfg.CELL_VALID_COLOR, r, 0)
         #     pygame.draw.rect(self.screen, pawn.border_color, r, 2) # player0 네모 테두리 그리기
@@ -394,6 +407,7 @@ class Board(Drawable):
         r.y += r.height // 2 - 5
         r.height = cfg.FONT_SIZE
         r.width *= 3
+
         pygame.draw.rect(self.screen, cfg.FONT_BG_COLOR, r, 0)  # Erases previous number
         self.msg(r.x, r.y, f"X {str(pawn.walls)}") # 남은 벽 개수 표시
 

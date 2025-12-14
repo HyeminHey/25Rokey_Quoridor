@@ -49,18 +49,27 @@ class BoardRosNode(Node):
         self.srv = self.create_service(AiCompute, '/ai_agent/get_robot_move', self.board_state_callback)
         self.get_logger().info("AI service server ready: /ai_agent/get_robot_move")
 
-        self.sub = self.create_subscription(
+        self.level_sub = self.create_subscription(
                     Int32,
                     '/game_level',
-                    self.listener_callback,
+                    self.level_listener_callback,
                     10)
-        self.sub
+        self.level_sub
         self.get_logger().info("Level Subscriber Node is Running. Waiting for /game_level messages...")
+
+        self.setting_sub = self.create_subscription(
+                    Int32,
+                    '/game_reset',
+                    self.setting_listener_callback,
+                    10)
+        self.setting_sub
+        self.get_logger().info("Setting Subscriber Node is Running. Waiting for /game_reset messages...")
+
 
         self.pub = self.create_publisher(String, '/game_finished', 10)
 
 
-    def listener_callback(self, msg):
+    def level_listener_callback(self, msg):
         if type(self.board.won_player) == int:
             # initializing
             core.init()
@@ -84,6 +93,33 @@ class BoardRosNode(Node):
         cfg.set_level(level)
         log(f"level = {cfg.LEVEL}")
         self.board.reset_AI()
+
+    def setting_listener_callback(self, msg):
+        set_mode = msg.data
+        if type(set_mode) == int:
+            if set_mode == 1: # 정리 시작 (정리 모드 on)
+                # State Box
+                state_rect = pygame.Rect(600, 600, 560, 130)
+                pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
+                # self.msg(650, 635, "-- Your Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
+                self.board.msg(625, 642, "Resetting the Board...", fsize=cfg.STATE_BOX_FONT_SIZE - 30)
+            elif set_mode == 0:
+                # initializing
+                core.init()
+                pygame.init()
+
+                pygame.display.set_mode((1200, 800))
+                pygame.display.set_caption(cfg.GAME_TITLE)
+                screen = pygame.display.get_surface()
+
+                screen.fill(Color(75, 75, 75))
+                board = core.BOARD = Board(screen)
+                board.draw()
+                log('System initialized OK')
+
+                self.board = board
+                self.screen = self.board.screen
+                self.last_request = []
             
     
     def board_state_callback(self, request:AiCompute, response):

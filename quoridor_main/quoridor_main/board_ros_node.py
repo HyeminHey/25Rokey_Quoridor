@@ -68,25 +68,28 @@ class BoardRosNode(Node):
 
         self.pub = self.create_publisher(String, '/game_finished', 10)
 
+    def reset_game(self):
+        # initializing
+        core.init()
+        pygame.init()
+
+        pygame.display.set_mode((1200, 800))
+        pygame.display.set_caption(cfg.GAME_TITLE)
+        screen = pygame.display.get_surface()
+
+        screen.fill(Color(75, 75, 75))
+        board = core.BOARD = Board(screen)
+        board.draw()
+        log('System initialized OK')
+
+        self.board = board
+        self.screen = self.board.screen
+        self.last_request = []
+
 
     def level_listener_callback(self, msg):
         if type(self.board.won_player) == int:
-            # initializing
-            core.init()
-            pygame.init()
-
-            pygame.display.set_mode((1200, 800))
-            pygame.display.set_caption(cfg.GAME_TITLE)
-            screen = pygame.display.get_surface()
-
-            screen.fill(Color(75, 75, 75))
-            board = core.BOARD = Board(screen)
-            board.draw()
-            log('System initialized OK')
-
-            self.board = board
-            self.screen = self.board.screen
-            self.last_request = []
+            self.reset_game()
 
         level = msg.data
         self.get_logger().info(f'--- Received Game Level: {msg.data} ---')
@@ -104,42 +107,11 @@ class BoardRosNode(Node):
                 # self.msg(650, 635, "-- Your Turn --", fsize=cfg.STATE_BOX_FONT_SIZE)
                 self.board.msg(625, 642, "Resetting the Board...", fsize=cfg.STATE_BOX_FONT_SIZE - 30)
             elif set_mode == 0:
-                # initializing
-                core.init()
-                pygame.init()
-
-                pygame.display.set_mode((1200, 800))
-                pygame.display.set_caption(cfg.GAME_TITLE)
-                screen = pygame.display.get_surface()
-
-                screen.fill(Color(75, 75, 75))
-                board = core.BOARD = Board(screen)
-                board.draw()
-                log('System initialized OK')
-
-                self.board = board
-                self.screen = self.board.screen
-                self.last_request = []
-            
+                self.reset_game()            
     
     def board_state_callback(self, request:AiCompute, response):
         if type(self.board.won_player) == int:
-            # initializing
-            core.init()
-            pygame.init()
-
-            pygame.display.set_mode((1200, 800))
-            pygame.display.set_caption(cfg.GAME_TITLE)
-            screen = pygame.display.get_surface()
-
-            screen.fill(Color(75, 75, 75))
-            board = core.BOARD = Board(screen)
-            board.draw()
-            log('System initialized OK')
-
-            self.board = board
-            self.screen = self.board.screen
-            self.last_request = []
+            self.reset_game()
         # self.get_logger().info(f"type(self.board) = {type(self.board)}")
 
         # self.get_logger().info("Received AiCompute request")

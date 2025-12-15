@@ -30,8 +30,8 @@ DR_init.__dsr__node = dsr_node
 
 try:
     from DSR_ROBOT2 import (
-        movel, DR_FC_MOD_REL, release_compliance_ctrl, release_force,
-        check_force_condition, task_compliance_ctrl, wait,
+        movel, movej, DR_FC_MOD_REL, release_compliance_ctrl, release_force,
+        check_force_condition, task_compliance_ctrl, wait, posj, posx,
         set_desired_force, set_ref_coord, DR_AXIS_Z,
     )
 except ImportError as e:
@@ -72,8 +72,11 @@ class RobotCtrlNode(Node):
             ok = False
 
             # MOVE
-            if primitive == "move_pose":
-                ok = self.do_move(step.target_pose)
+            if primitive == "movej_pose":
+                ok = self.do_movej(step.target_pose)
+
+            elif primitive == "movel_pose":
+                ok = self.do_movel(step.target_pose)
 
             # GRIPPER
             elif primitive == "operate_gripper":
@@ -108,7 +111,25 @@ class RobotCtrlNode(Node):
     # ----------------------------------------------------------------------
     # PRIMITIVES
     # ----------------------------------------------------------------------
-    def do_move(self, pose_list):
+    def do_movej(self, pose_list):
+        """
+        pose_list: [j1, j2, j3, j4, j5, j6]
+        """
+        if len(pose_list) != 6:
+            self.get_logger().error(f"[MOVE] Invalid pose list: {pose_list}")
+            return False
+
+        j1, j2, j3, j4, j5, j6 = pose_list
+        self.get_logger().info(
+            f"[MOVE] joint=({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f},{j5:.3f},{j6:.3f}) "
+        )
+
+        # TODO: replace with IK + controller
+        movej(posj([j1, j2, j3, j4, j5, j6]), vel=VELOCITY, acc=ACC)
+        wait(1.0)
+        return True
+
+    def do_movel(self, pose_list):
         """
         pose_list: [x, y, z, roll, pitch, yaw]
         """
@@ -123,7 +144,7 @@ class RobotCtrlNode(Node):
         )
 
         # TODO: replace with IK + controller
-        movel(pose_list, vel=VELOCITY, acc=ACC)
+        movel(posx([x, y, z, r, p, yaw]), vel=VELOCITY, acc=ACC)
         wait(1.0)
         return True
 

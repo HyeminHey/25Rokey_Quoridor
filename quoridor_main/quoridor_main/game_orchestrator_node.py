@@ -21,7 +21,7 @@ BOARD_X_MIN = 280
 BOARD_X_MAX = 674
 BOARD_Y_MIN = -185
 BOARD_Y_MAX = 210
-pick_pose = [267.358, 7.489, 194.298, 131.655, 179.966, -138.5]
+pick_pose = [0.004, -15.49, 103.192, 0.041, 92.317, 90.012] # joint
 
 # ===================== FSM STATES =====================
 class OrchestratorState(Enum):
@@ -29,6 +29,7 @@ class OrchestratorState(Enum):
     WAIT_START = auto()
     HUMAN_TURN = auto()
     ROBOT_THINK = auto()
+    RULE_BREAK = auto()
     ROBOT_PLAN = auto()
     ROBOT_EXECUTE = auto()
     CLEAN_UP = auto()
@@ -97,8 +98,9 @@ class GameOrchestratorNode(Node):
         self._awaiting_final_state = False    # end turn 후 vision 대기용
         self.wall_used=0
 
-        self.camera_pose = [160.018, 7.227, 347.286, 0.043, 150.865, 89.941]
-        self.pose_home = [367.438, 7.224, 194.564, 68.625, 179.97, 68.493]
+        # self.camera_pose = [160.018, 7.227, 347.286, 0.043, 150.865, 89.941]
+        self.camera_pose = [-30.438, -46.239, 96.574, 14.625, 103.517, 66.352] # joint
+        self.pose_home = [0.0, 0.0, 90.0, 0.0, 90.0, 0.0] # joint
         self.wall_pose = [
             [257.072, -137.373, 54.029, 147.491, 179.923, -122.683],
             [257.066, -77.279, 54.043, 146.731, 179.926, -123.454],
@@ -106,7 +108,7 @@ class GameOrchestratorNode(Node):
             [256.998, 42.637, 53.959, 150.961, 179.912, -119.197],
             [257.055, 102.752, 53.982, 149.117, 179.914, -121.052],
             [257.449, 160.218, 54.289, 114.474, 179.924, -155.735]
-        ]
+        ] # task
 
         self.create_timer(0.1, self.main_loop)
         self.log("✅ Orchestrator initialized (Future FSM)")
@@ -178,7 +180,7 @@ class GameOrchestratorNode(Node):
                     # 로봇을 camera_pose로 이동시키기 위한 motion 생성
                     motion = {
                         'sequence': [
-                            {'primitive': 'move_pose', 'pose': self.camera_pose}
+                            {'primitive': 'movej_pose', 'pose': self.camera_pose}
                         ]
                     }
                     goal = self.build_motion_goal(motion)
@@ -411,17 +413,17 @@ class GameOrchestratorNode(Node):
             motion = {
                 'sequence': [
                     {'primitive': 'operate_gripper', 'width': 350},
-                    {'primitive': 'move_pose', 'pose': pick_pose},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_obj},
+                    {'primitive': 'movej_pose', 'pose': pick_pose},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_obj},
                     {'primitive': 'operate_gripper', 'width': 0},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pos},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movel_pose', 'pose': pos},
                     {'primitive': 'force_control'},
                     {'primitive': 'operate_gripper', 'width': 350},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pick_pose}
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movel_pose', 'pose': pick_pose}
                 ]
             }
         else: # wall

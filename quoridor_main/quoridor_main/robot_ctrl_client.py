@@ -32,14 +32,20 @@ class MotionRequestServer(Node):
         self.sent = True
 
         # Example Motion Dict
-        test_motion = {
-            'sequence': [
-                {'primitive': 'move_pose', 'pose': [367.39,7.39,194.84,27.92,179.77,27.78]},
-                # {'primitive': 'operate_gripper', 'width': 0},
-                # {'primitive': 'move_pose', 'pose': [367.39,7.39,36.52,27.92,179.77,27.78]},
-                # {'primitive': 'move_pose', 'pose': [367.39,7.39,36.52,27.92,179.77,117.78]},
-                # {'primitive': 'force_control'},
-                # {'primitive': 'operate_gripper', 'width': 200},
+        test_motion = {'sequence': [
+            {'primitive': 'operate_gripper', 'width': 300}, 
+            {'primitive': 'move_pose', 'pose': [457.494, 7.422, 194.304, 132.373, 179.965, 132.209]},
+            # {'primitive': 'move_pose', 'pose': [160.018, 7.227, 347.286, 0.043, 150.865, 89.941]},
+            # {'primitive': 'move_pose', 'pose': [267.358, 7.489, 194.298, 131.655, 179.966, -138.5]}, 
+            # {'primitive': 'move_pose', 'pose': [308.14285714285717, 12.5, 70.0, 131.655, 179.966, -138.5]},
+            # {'primitive': 'move_pose', 'pose': [308.14285714285717, 12.5, 40.0, 131.655, 179.966, -138.5]}, 
+            # {'primitive': 'operate_gripper', 'width': 0}, 
+            # {'primitive': 'move_pose', 'pose': [308.14285714285717, 12.5, 70.0, 131.655, 179.966, -138.5]}, 
+            # {'primitive': 'move_pose', 'pose': [364.42857142857144, 12.5, 70.0, 131.655, 179.966, -138.5]},
+            # {'primitive': 'force_control'}, 
+            # {'primitive': 'operate_gripper', 'width': 300}, 
+            # {'primitive': 'move_pose', 'pose': [364.42857142857144, 12.5, 70.0, 131.655, 179.966, -138.5]},
+            # {'primitive': 'move_pose', 'pose': [267.358, 7.489, 194.298, 131.655, 179.966, -138.5]}
             ]
         }
 

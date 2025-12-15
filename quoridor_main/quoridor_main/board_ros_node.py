@@ -132,25 +132,9 @@ class BoardRosNode(Node):
             pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)
             self.board.msg(650, 620, "Now Detecting...", fsize=cfg.STATE_BOX_FONT_SIZE - 30)
             self.board.msg(850, 675, "Don't Touch!", fsize=cfg.STATE_BOX_FONT_SIZE - 40)
-            pygame.display.flip()     
+            pygame.display.flip()
 
-            # wait for 10sec
-            clock = pygame.time.Clock()
-            start_time = pygame.time.get_ticks()
-
-            waiting = True
-            while waiting:
-                clock.tick(60)  # FPS 유지
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        exit()
-
-                if pygame.time.get_ticks() - start_time >= 3000:
-                    waiting = False
-            # pygame.time.wait(3000)  # 3초 대기
-            
+        elif self.now_state == "PRE_DET":
             # State Box
             state_rect = pygame.Rect(600, 600, 560, 130)
             pygame.draw.rect(self.screen, cfg.STATE_BOX_COLOR, state_rect, 0)

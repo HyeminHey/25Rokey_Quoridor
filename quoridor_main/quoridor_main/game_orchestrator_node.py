@@ -17,18 +17,23 @@ from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.srv import AiCompute
 
-BOARD_X_MIN = 280
-BOARD_X_MAX = 674
-BOARD_Y_MIN = -185
-BOARD_Y_MAX = 210
-pick_pose = [267.358, 7.489, 194.298, 131.655, 179.966, -138.5]
+BOARD_X_MIN = 270
+BOARD_X_MAX = 675
+BOARD_Y_MIN = -191
+BOARD_Y_MAX = 214 # real
+PAWN_CELL = 45.0
+PAWN_GAP  = 15.0
+pick_pose = [0.004, -15.49, 103.192, 0.041, 92.317, 90.012] # joint
+pick_pose_l = [257.256, 7.46, 194.059, 159.331, 179.928, -110.819]
 
 # ===================== FSM STATES =====================
 class OrchestratorState(Enum):
     WAIT_WAKE = auto()
     WAIT_START = auto()
     HUMAN_TURN = auto()
+    WAIT_VISION_RETRY = auto()
     ROBOT_THINK = auto()
+    RULE_BREAK = auto()
     ROBOT_PLAN = auto()
     ROBOT_EXECUTE = auto()
     CLEAN_UP = auto()
@@ -98,16 +103,25 @@ class GameOrchestratorNode(Node):
         self._awaiting_final_state = False    # end turn 후 vision 대기용
         self.wall_used=0
 
-        self.camera_pose = [160.018, 7.227, 347.286, 0.043, 150.865, 89.941]
-        self.pose_home = [367.438, 7.224, 194.564, 68.625, 179.97, 68.493]
+        # self.camera_pose = [-30.438, -46.239, 96.574, 14.625, 103.517, 66.352] # joint
+        self.camera_pose = [-29.062, -49.05, 96.263, 13.934, 106.247, 68.124] # joint
+        self.pose_home = [0.0, 0.0, 90.0, 0.0, 90.0, 0.0] # joint
+        # self.wall_pose = [
+        #     [257.072, -137.373, 54.029, 147.491, 179.923, -122.683],
+        #     [257.066, -77.279, 54.043, 146.731, 179.926, -123.454],
+        #     [256.932, -16.599, 53.945, 151.618, 179.911, -118.519],
+        #     [256.998, 42.637, 53.959, 150.961, 179.912, -119.197],
+        #     [257.055, 102.752, 53.982, 149.117, 179.914, -121.052],
+        #     [257.449, 160.218, 54.289, 114.474, 179.924, -155.735]
+        # ] # task
         self.wall_pose = [
-            [257.072, -137.373, 54.029, 147.491, 179.923, -122.683],
-            [257.066, -77.279, 54.043, 146.731, 179.926, -123.454],
-            [256.932, -16.599, 53.945, 151.618, 179.911, -118.519],
-            [256.998, 42.637, 53.959, 150.961, 179.912, -119.197],
-            [257.055, 102.752, 53.982, 149.117, 179.914, -121.052],
-            [257.449, 160.218, 54.289, 114.474, 179.924, -155.735]
-        ]
+            [233.034, -137.454, 54.061, 148.394, 179.928, -121.78],
+            [232.998, -77.359, 54.039, 148.814, 179.924, -121.369],
+            [232.963, -17.258, 54.027, 148.992, 179.923, -121.209],
+            [231.999, 42.815, 54.024, 150.607, 179.921, -119.603],
+            [231.01, 102.933, 54.014, 152.954, 179.919, -117.273],
+            [230.446, 162.316, 54.292, 123.353, 179.93, -146.878]
+        ] # task
 
         self.create_timer(0.1, self.main_loop)
         self.log("✅ Orchestrator initialized (Future FSM)")
@@ -188,7 +202,7 @@ class GameOrchestratorNode(Node):
                     # 로봇을 camera_pose로 이동시키기 위한 motion 생성
                     motion = {
                         'sequence': [
-                            {'primitive': 'move_pose', 'pose': self.camera_pose}
+                            {'primitive': 'movej_pose', 'pose': self.camera_pose}
                         ]
                     }
                     goal = self.build_motion_goal(motion)
@@ -263,7 +277,6 @@ class GameOrchestratorNode(Node):
                         self.added = self.compute_added(self.prev_state, current_state)
                         self.log(f"Detected human additions/moves: {self.added}")
 
-                        # 상태 초기화 및 다음 FSM으로 전환
                         self._human_turn_initialized = False
                         self._awaiting_final_state = False
                         self.state = OrchestratorState.ROBOT_THINK
@@ -425,23 +438,24 @@ class GameOrchestratorNode(Node):
             pos = self.pawn_board_to_base(*pos_b)
             pos_obj = self.pawn_board_to_base(*pos_obj_b)
             pos_pre = pos.copy()
-            pos_pre[2] += 40
+            pos_pre[2] += 60
             pos_obj_pre = pos_obj.copy()
-            pos_obj_pre[2] += 40
+            pos_obj_pre[2] += 60
+            pos[2] += 10
             motion = {
                 'sequence': [
-                    {'primitive': 'operate_gripper', 'width': 350},
-                    {'primitive': 'move_pose', 'pose': pick_pose},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_obj},
-                    {'primitive': 'operate_gripper', 'width': 0},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pos},
+                    {'primitive': 'operate_gripper', 'width': 450},
+                    {'primitive': 'movej_pose', 'pose': pick_pose},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_obj},
+                    {'primitive': 'operate_gripper', 'width':350},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movel_pose', 'pose': pos},
                     {'primitive': 'force_control'},
-                    {'primitive': 'operate_gripper', 'width': 350},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pick_pose}
+                    {'primitive': 'operate_gripper', 'width': 450},
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movej_pose', 'pose': pick_pose}
                 ]
             }
         else: # wall
@@ -452,23 +466,24 @@ class GameOrchestratorNode(Node):
             elif obj==2:
                 pos = self.wall_board_to_base(*pos_b, "vertical")
             pos_pre = pos.copy()
-            pos_pre[2] += 40
+            pos_pre[2] += 60
             pos_obj_pre = pos_obj.copy()
-            pos_obj_pre[2] += 40
+            pos_obj_pre[2] += 60
+            pos[2] += 10
             motion = {
                 'sequence': [
+                    {'primitive': 'operate_gripper', 'width': 350},
+                    {'primitive': 'movej_pose', 'pose': pick_pose},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_obj},
                     {'primitive': 'operate_gripper', 'width': 250},
-                    {'primitive': 'move_pose', 'pose': pick_pose},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_obj},
-                    {'primitive': 'operate_gripper', 'width': 0},
-                    {'primitive': 'move_pose', 'pose': pos_obj_pre},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pos},
+                    {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movel_pose', 'pose': pos},
                     {'primitive': 'force_control'},
-                    {'primitive': 'operate_gripper', 'width': 250},
-                    {'primitive': 'move_pose', 'pose': pos_pre},
-                    {'primitive': 'move_pose', 'pose': pick_pose}
+                    {'primitive': 'operate_gripper', 'width': 350},
+                    {'primitive': 'movel_pose', 'pose': pos_pre},
+                    {'primitive': 'movej_pose', 'pose': pick_pose}
                 ]
             }
         print(motion)
@@ -477,44 +492,50 @@ class GameOrchestratorNode(Node):
 
     def pawn_board_to_base(self, r, c):
         """
-        pawn 보드좌표 (r,c) → base 좌표계 pose
+        pawn 보드좌표 (r,c) → base 좌표계
+        실제 45x45 칸 중심 기준
         """
-        cell_w = (BOARD_X_MAX - BOARD_X_MIN) / 7
-        cell_h = (BOARD_Y_MAX - BOARD_Y_MIN) / 7
 
-        x = float(BOARD_X_MIN + (r + 0.5) * cell_w)
-        y = float(BOARD_Y_MIN + (c + 0.5) * cell_h)
-        z = float(30)
-        rx, ry, rz = map(float, pick_pose[3:])
+        x = (
+            BOARD_X_MIN
+            + r * (PAWN_CELL + PAWN_GAP)
+            + PAWN_CELL / 2
+        )
+
+        y = (
+            BOARD_Y_MIN
+            + c * (PAWN_CELL + PAWN_GAP)
+            + PAWN_CELL / 2
+        )
+
+        z = 70.0
+        rx, ry, rz = map(float, pick_pose_l[3:])
+
         return [x, y, z, rx, ry, rz]
+
 
     def wall_board_to_base(self, r, c, orientation):
         """
         wall 보드좌표 (r,c) → base 좌표
         orientation: "horizontal" | "vertical"
         """
-        pawn_cell_w = (BOARD_X_MAX - BOARD_X_MIN) / 7
-        pawn_cell_h = (BOARD_Y_MAX - BOARD_Y_MIN) / 7
+        x = (
+            BOARD_X_MIN + PAWN_CELL
+            + r * (PAWN_CELL + PAWN_GAP)
+            + PAWN_GAP / 2
+        )
 
-        wall_x_min = BOARD_X_MIN + pawn_cell_w / 2
-        wall_x_max = BOARD_X_MAX - pawn_cell_w / 2
-        wall_y_min = BOARD_Y_MIN + pawn_cell_h / 2
-        wall_y_max = BOARD_Y_MAX - pawn_cell_h / 2
+        y = (
+            BOARD_Y_MIN + PAWN_CELL
+            + c * (PAWN_CELL + PAWN_GAP)
+            + PAWN_GAP / 2
+        )
 
-        wall_cell_w = (wall_x_max - wall_x_min) / 6
-        wall_cell_h = (wall_y_max - wall_y_min) / 6
-
-        x = wall_x_min + (r + 0.5) * wall_cell_w
-        y = wall_y_min + (c + 0.5) * wall_cell_h
-
-        z = 30
-        rx, ry, rz = pick_pose[3:]
+        z = 50.0
+        rx, ry, rz = pick_pose_l[3:]
 
         if orientation == "horizontal":
             rz += 90
-            y += 25
-        else:
-            x += 25 # 잡는위치 보정
 
         return list(map(float, [x, y, z, rx, ry, rz]))
 

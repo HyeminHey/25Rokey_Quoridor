@@ -31,23 +31,27 @@ except ImportError as e:
 BOARD_X_MIN = 280
 BOARD_X_MAX = 674
 BOARD_Y_MIN = -185
-BOARD_Y_MAX = 210
+BOARD_Y_MAX = 210 # for detect
 
 
 def map_pawn_to_board(x, y):
+    # 1️⃣ 보드 범위 체크 (가장 중요)
+    if not (BOARD_X_MIN <= x <= BOARD_X_MAX and
+            BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+        return None
+
     cell_w = (BOARD_X_MAX - BOARD_X_MIN) / 7
     cell_h = (BOARD_Y_MAX - BOARD_Y_MIN) / 7
 
     row = int((x - BOARD_X_MIN) / cell_w)
     col = int((y - BOARD_Y_MIN) / cell_h)
 
-    col = max(0, min(6, col))
-    row = max(0, min(6, row))
-
+    # 2️⃣ 인덱스 범위 체크
     if row < 0 or row > 6 or col < 0 or col > 6:
         return None
 
     return row, col
+
 
 
 def map_wall_to_board(x, y):
@@ -59,16 +63,23 @@ def map_wall_to_board(x, y):
     wall_y_min = BOARD_Y_MIN + pawn_cell_h / 2
     wall_y_max = BOARD_Y_MAX - pawn_cell_h / 2
 
+    # 1️⃣ wall 영역 체크
+    if not (wall_x_min <= x <= wall_x_max and
+            wall_y_min <= y <= wall_y_max):
+        return None
+
     wall_cell_w = (wall_x_max - wall_x_min) / 6
     wall_cell_h = (wall_y_max - wall_y_min) / 6
 
     row = int((x - wall_x_min) / wall_cell_w)
     col = int((y - wall_y_min) / wall_cell_h)
 
+    # 2️⃣ 인덱스 체크
     if row < 0 or row > 5 or col < 0 or col > 5:
         return None
 
     return row, col
+
 
 class ObjectDetectionNode(Node):
     def __init__(self):

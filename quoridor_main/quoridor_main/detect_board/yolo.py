@@ -9,7 +9,7 @@ from ultralytics import YOLO
 
 class YoloModel:
     def __init__(self):
-        resource_path = "/home/rokey/quoridor_ws/src/quoridor_main/resource"
+        resource_path = "/home/hyemin/quoridor_ws/src/quoridor_main/resource"
         model_path = os.path.join(resource_path, "quoridor_seg.pt")
         json_path = os.path.join(resource_path, "class_name_tool.json")
 
@@ -24,8 +24,8 @@ class YoloModel:
         img_node,
         duration=1.0,
         conf_th=0.5,
-        dist_th=30,
-        angle_th=10.0,
+        dist_th=20,
+        angle_th=5.0,
     ):
         frames = self._get_frames(img_node, duration)
         results = self.model(frames, verbose=False)

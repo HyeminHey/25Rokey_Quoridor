@@ -132,29 +132,44 @@ class ObjectDetectionNode(Node):
             self.misaligned_walls,
         )
 
-        if GameOrchestratorNode.state == OrchestratorState.HUMAN_TURN:
-            # 🔥 Int32Row[] 로 변환
-            response.board_state = []
-            for item in board_array:
-                row = Int32Row()
-                row.data = item   # [type, r, c]
-                response.board_state.append(row)
+        # 실제코드
+        # if GameOrchestratorNode.state == OrchestratorState.HUMAN_TURN:
+        #     # 🔥 Int32Row[] 로 변환
+        #     response.board_state = []
+        #     for item in board_array:
+        #         row = Int32Row()
+        #         row.data = item   # [type, r, c]
+        #         response.board_state.append(row)
 
-            self.get_logger().info(
-                f"📤 Vision response: {[r.data for r in response.board_state]}"
-            )
+        #     self.get_logger().info(
+        #         f"📤 Vision response: {[r.data for r in response.board_state]}"
+        #     )
 
-        elif GameOrchestratorNode.state == OrchestratorState.CLEAN_UP:
-            # 🔥 Int32Row[] 로 변환
-            response.board_state = []
-            for item in clean_board_array:
-                row = Int32Row()
-                row.data = item   # [type, r, c]
-                response.board_state.append(row)
+        # elif GameOrchestratorNode.state == OrchestratorState.CLEAN_UP:
+        #     # 🔥 Int32Row[] 로 변환
+        #     response.board_state = []
+        #     for item in clean_board_array:
+        #         row = Int32Row()
+        #         row.data = item   # [type, r, c]
+        #         response.board_state.append(row)
 
-            self.get_logger().info(
-                f"📤 Vision response: {[r.data for r in response.board_state]}"
-            )
+        #     self.get_logger().info(
+        #         f"📤 Vision response: {[r.data for r in response.board_state]}"
+        #     )
+        # return response
+
+
+        #테스트용
+        # 🔥 Int32Row[] 로 변환
+        response.board_state = []
+        for item in clean_board_array:
+            row = Int32Row()
+            row.data = item   # [type, r, c]
+            response.board_state.append(row)
+
+        self.get_logger().info(
+            f"📤 Vision response: {[r.data for r in response.board_state]}"
+        )
         return response
 
 
@@ -205,7 +220,7 @@ class ObjectDetectionNode(Node):
 
 
     def _camera_to_base(self, camera_coords):
-        resource_path = "/home/rokey/quoridor_ws/src/quoridor_main/resource"
+        resource_path = "/home/hyemin/quoridor_ws/src/quoridor_main/resource"
         gripper2cam = np.load(
             os.path.join(resource_path, "T_gripper2camera.npy")
         )
@@ -303,33 +318,33 @@ class ObjectDetectionNode(Node):
 
         # 🔴 Red Pawn
         for x, y, _ in red_pawns:
-            if x is None or y is None:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
                 continue
-            clean_board_state.append([1, x, y])
+            clean_board_state.append([1, int(x), int(y)])
 
         # 🔵 Blue Pawn
         for x, y, _ in blue_pawns:
-            if x is None or y is None:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
                 continue
-            clean_board_state.append([-1, x, y])
+            clean_board_state.append([-1, int(x), int(y)])
 
         # ➖ Horizontal Wall
         for x, y, _ in horizontal_walls:
-            if x is None or y is None:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
                 continue
-            clean_board_state.append([-2, x, y])
+            clean_board_state.append([-2, int(x), int(y)])
 
         # ➕ Vertical Wall
         for x, y, _ in vertical_walls:
-            if x is None or y is None:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
                 continue
-            clean_board_state.append([2, x, y])
+            clean_board_state.append([2, int(x), int(y)])
         
         # Misaligned Wall
         for x, y, _, angle in misaligned_walls:
-            if x is None or y is None:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
                 continue
-            clean_board_state.append([3, x, y, int(angle)])
+            clean_board_state.append([3, int(x), int(y), int(angle)])
 
         return clean_board_state
 

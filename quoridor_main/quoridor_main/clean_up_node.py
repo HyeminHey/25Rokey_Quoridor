@@ -11,7 +11,6 @@ from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.action import ExecuteMotion
 
-from game_orchestrator_node import GameOrchestratorNode as orch
 
 
 pick_pose = [0.004, -15.49, 103.192, 0.041, 92.317, 90.012] # joint
@@ -41,6 +40,7 @@ class CleanUpNode(Node):
         # ---------- Cleanup Data ----------
         self.detected_pawns = []
         self.detected_walls = []
+        self.seq_list = []
 
         self.current_phase = None   # "PAWN" | "WALL"
         self.current_idx = 0
@@ -75,7 +75,9 @@ class CleanUpNode(Node):
         self.motion_result_future = None
         self.vision_future = None
 
-        self.create_timer(0.1, self.plan_clean_up_motion)
+        self.main_timer = None
+        self.robot_timer = None
+
         self.get_logger().info("CleanUpNode ready")
 
     def log(self, text):
@@ -96,8 +98,12 @@ class CleanUpNode(Node):
 
         self._active = True
         self._response = response
-
-        self.plan_clean_up_motion()
+        self._clean_up_initialized = False
+        self.motion_goal_future = None
+        self.motion_result_future = None
+        self.vision_future = None
+        self.log(f"initialized = {self._clean_up_initialized}")
+        self.main_timer = self.create_timer(0.1, self.plan_clean_up_motion)
         return response
 
     # ==================================================
@@ -114,7 +120,7 @@ class CleanUpNode(Node):
                     {'primitive': 'movej_pose', 'pose': self.camera_pose}
                 ]
             }
-            goal = orch.build_motion_goal(motion)
+            goal = self.build_motion_goal(motion)
             self.motion_goal_future = self.motion_client.send_goal_async(goal)
             return  # motion이 완료될 때까지 대기
 
@@ -196,25 +202,46 @@ class CleanUpNode(Node):
         #             else:
         #                 pass # 에러 예외처리
 
-        if not self._clean_up_started:
+        if self.seq_list and not self._clean_up_started:
             self._clean_up_started = True
             self.now_obj = 0
             self.obj_cnt = len(self.seq_list)
+            if self.obj_cnt == 0:
+                self.log("Nothing to clean → finish")
+                self._clean_up_started = False
+                return
+            
+            # 🔴 plan 타이머 끄기
+            if self.main_timer:
+                self.main_timer.cancel()
+                self.main_timer = None
 
-            self.motion_goal_future = None
-            self.motion_result_future = None
-
-            self.cleanup_timer = self.create_timer(
+            # 🟢 cleanup 타이머 켜기
+            self.robot_timer = self.create_timer(
                 0.1, self.robot_motion_execute
             )
+
+
 
 
     def robot_motion_execute(self):
         if not self._clean_up_started:
             return
+        if not self.seq_list:
+            self.log("No motion sequence → abort cleanup")
+            self._clean_up_started = False
+            self.robot_timer.cancel()
+            return
+        
+        if self.now_obj >= len(self.seq_list):
+            self.log("Index overflow → cleanup finished safely")
+            self._clean_up_started = False
+            self.robot_timer.cancel()
+            return
+        
         robot_motion = self.seq_list[self.now_obj]
         if self.motion_goal_future is None:
-            goal = orch.build_motion_goal(robot_motion)
+            goal = self.build_motion_goal(robot_motion)
             self.motion_goal_future = self.motion_client.send_goal_async(goal)
             return
 
@@ -235,8 +262,13 @@ class CleanUpNode(Node):
                 self.log("하나 정리 끝")
                 if self.now_obj == self.obj_cnt - 1:
                     self.log(f"End Cleaning")
+                    self.seq_list = []
                     self._clean_up_started = False
-                    self.cleanup_timer.cancel()
+                    self._active = False
+                    if self.robot_timer:
+                        self.robot_timer.cancel()
+                        self.robot_timer = None
+                    # self.main_timer = self.create_timer(0.1, self.plan_clean_up_motion)
                     return
                 self.now_obj += 1
 
@@ -285,10 +317,12 @@ class CleanUpNode(Node):
                 elif obj == 2:
                     pos_orig = self.set_wall_pose(*pos_b, "vertical")
                 elif obj == 3:
-                    if len(pos_b) < 4:
+                    if len(pos_b) < 3:
                         print("error")
-                    angle = pos_b[3]
-                    pos_orig = self.set_wall_pose(*pos_b, "misaligned", angle)
+                        return
+                    angle = pos_b[2]
+                    pos_b_xy = pos_b[:2]
+                    pos_orig = self.set_wall_pose(*pos_b_xy, "misaligned", angle)
                 # 목적지 일단 하나만 만들고 그다음에 wall_used해보자.
                 pos_dst = self.set_wall_pose(self.player_wall_init_pose[0], self.player_wall_init_pose[1], "horizontal")
                 # 출발지cell (위)
@@ -343,7 +377,7 @@ class CleanUpNode(Node):
             #             {'primitive': 'movej_pose', 'pose': pick_pose}
             #         ]
             #     }
-            self.log(motion)
+            print(motion)
 
             return motion
 
@@ -372,7 +406,7 @@ class CleanUpNode(Node):
 
             # 🔑 핵심: angle 그대로 joint6에 반영
             # YOLO angle 기준 = wall 방향
-            rz += angle
+            rz += (180 - angle)
 
             # 안정성: [-180, 180] 정규화
             if rz > 180.0:
@@ -385,7 +419,18 @@ class CleanUpNode(Node):
 
         return list(map(float, [x, y, z, rx, ry, rz]))
 
+    def build_motion_goal(self, motion):
+        goal = ExecuteMotion.Goal()
+        goal.sequence = MotionSequence()
 
+        for step in motion["sequence"]:
+            prim = MotionPrimitive()
+            prim.primitive = step["primitive"]
+            prim.target_pose = step.get("pose", [0.0]*6)
+            prim.gripper_width = step.get("width", 0)
+            goal.sequence.sequence.append(prim)
+
+        return goal
 
 def main(args=None):
     rclpy.init(args=args)

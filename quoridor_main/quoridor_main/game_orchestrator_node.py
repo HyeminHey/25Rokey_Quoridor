@@ -241,6 +241,11 @@ class GameOrchestratorNode(Node):
                     self.game_state = [row.data for row in res.board_state]
                     self.prev_state = copy.deepcopy(self.game_state)  # 기준 상태 저장
                     self._human_turn_started = True
+
+                    msg = String()
+                    msg.data = "PRE_DET"
+                    self.state_pub.publish(msg)
+
                     self.log(f"Human Turn started, prev_state saved: {self.prev_state}")
 
                 # --- Step 5: Speech 감지 ---

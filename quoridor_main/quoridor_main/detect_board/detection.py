@@ -9,6 +9,8 @@ from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.msg import Int32Row
 import DR_init
 import sys, os
+from quoridor_main.game_orchestrator_node import OrchestratorState
+from quoridor_main.game_orchestrator_node import GameOrchestratorNode
 
 # for single robot
 ROBOT_ID = "dsr01"
@@ -109,6 +111,7 @@ class ObjectDetectionNode(Node):
         self.blue_pawns = []
         self.horizontal_walls = []
         self.vertical_walls = []
+        self.misaligned_walls = []
 
         # 인식 수행
         self.process_scene()
@@ -120,9 +123,46 @@ class ObjectDetectionNode(Node):
             self.vertical_walls
         )
 
+        # cleanup용 board array 생성
+        clean_board_array = self.build_clean_board_state_array(
+            self.red_pawns,
+            self.blue_pawns,
+            self.horizontal_walls,
+            self.vertical_walls,
+            self.misaligned_walls,
+        )
+
+        # 실제코드
+        # if GameOrchestratorNode.state == OrchestratorState.HUMAN_TURN:
+        #     # 🔥 Int32Row[] 로 변환
+        #     response.board_state = []
+        #     for item in board_array:
+        #         row = Int32Row()
+        #         row.data = item   # [type, r, c]
+        #         response.board_state.append(row)
+
+        #     self.get_logger().info(
+        #         f"📤 Vision response: {[r.data for r in response.board_state]}"
+        #     )
+
+        # elif GameOrchestratorNode.state == OrchestratorState.CLEAN_UP:
+        #     # 🔥 Int32Row[] 로 변환
+        #     response.board_state = []
+        #     for item in clean_board_array:
+        #         row = Int32Row()
+        #         row.data = item   # [type, r, c]
+        #         response.board_state.append(row)
+
+        #     self.get_logger().info(
+        #         f"📤 Vision response: {[r.data for r in response.board_state]}"
+        #     )
+        # return response
+
+
+        #테스트용
         # 🔥 Int32Row[] 로 변환
         response.board_state = []
-        for item in board_array:
+        for item in clean_board_array:
             row = Int32Row()
             row.data = item   # [type, r, c]
             response.board_state.append(row)
@@ -130,7 +170,6 @@ class ObjectDetectionNode(Node):
         self.get_logger().info(
             f"📤 Vision response: {[r.data for r in response.board_state]}"
         )
-
         return response
 
 
@@ -167,15 +206,21 @@ class ObjectDetectionNode(Node):
                     self.horizontal_walls.append(base_xyz)
                 elif det["orientation"] == "vertical":
                     self.vertical_walls.append(base_xyz)
+                elif det["orientation"] == "misaligned":
+                    x, y, z = base_xyz
+                    angle = det["angle"]
+                    self.misaligned_walls.append((x, y, z, angle))
 
         self.get_logger().info(f"Red pawns: {self.red_pawns}")
         self.get_logger().info(f"Blue pawns: {self.blue_pawns}")
         self.get_logger().info(f"H Walls: {self.horizontal_walls}")
         self.get_logger().info(f"V Walls: {self.vertical_walls}")
+        self.get_logger().info(f"M Walls: {self.misaligned_walls}")
+
 
 
     def _camera_to_base(self, camera_coords):
-        resource_path = "/home/rokey/quoridor_ws/src/quoridor_main/resource"
+        resource_path = "/home/hyemin/quoridor_ws/src/quoridor_main/resource"
         gripper2cam = np.load(
             os.path.join(resource_path, "T_gripper2camera.npy")
         )
@@ -221,7 +266,7 @@ class ObjectDetectionNode(Node):
         red_pawns,
         blue_pawns,
         horizontal_walls,
-        vertical_walls
+        vertical_walls,
     ):
         board_state = []
 
@@ -258,6 +303,50 @@ class ObjectDetectionNode(Node):
             board_state.append([2, r, c])
 
         return board_state
+
+
+    # msg type이 int32인게 문제가 될까.. mm단위라 괜찮지 않을까..
+    def build_clean_board_state_array(
+        self,
+        red_pawns,
+        blue_pawns,
+        horizontal_walls,
+        vertical_walls,
+        misaligned_walls
+    ):
+        clean_board_state = []
+
+        # 🔴 Red Pawn
+        for x, y, _ in red_pawns:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+                continue
+            clean_board_state.append([1, int(x), int(y)])
+
+        # 🔵 Blue Pawn
+        for x, y, _ in blue_pawns:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+                continue
+            clean_board_state.append([-1, int(x), int(y)])
+
+        # ➖ Horizontal Wall
+        for x, y, _ in horizontal_walls:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+                continue
+            clean_board_state.append([-2, int(x), int(y)])
+
+        # ➕ Vertical Wall
+        for x, y, _ in vertical_walls:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+                continue
+            clean_board_state.append([2, int(x), int(y)])
+        
+        # Misaligned Wall
+        for x, y, _, angle in misaligned_walls:
+            if not (BOARD_X_MIN <= x <= BOARD_X_MAX and BOARD_Y_MIN <= y <= BOARD_Y_MAX):
+                continue
+            clean_board_state.append([3, int(x), int(y), int(angle)])
+
+        return clean_board_state
 
 
 

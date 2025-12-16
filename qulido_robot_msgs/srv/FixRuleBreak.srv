@@ -1,0 +1,8 @@
+# FixRuleBreak.srv
+# Request
+int32[] prev_state_flat    # 이전 상태를 1차원으로 flatten
+int32[] current_state_flat # 현재 상태를 1차원으로 flatten
+---
+# Response
+bool success
+string message

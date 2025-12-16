@@ -43,9 +43,8 @@ setup(
             'board_ros_node = quoridor_main.board_ros_node:main',
             'board_ros_client = quoridor_main.test_cli:main',
             'detect_node = quoridor_main.detect_board.detection:main',
-            
-            # 한국어 깨우기 노드
             'wakeup_word_node_korean = quoridor_main.wakeup_word_node_korean:main',
+            'rule_break_handler_node = quoridor_main.rule_break_handler_node:main',
             
             
             

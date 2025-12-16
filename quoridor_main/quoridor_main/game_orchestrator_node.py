@@ -4,7 +4,7 @@
 import rclpy
 from rclpy.node import Node
 from enum import Enum, auto
-import time
+import copy
 
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
@@ -16,6 +16,8 @@ from qulido_robot_msgs.action import ExecuteMotion
 from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.srv import AiCompute
+from qulido_robot_msgs.srv import FixRuleBreak
+
 
 BOARD_X_MIN = 270
 BOARD_X_MAX = 675
@@ -31,7 +33,6 @@ class OrchestratorState(Enum):
     WAIT_WAKE = auto()
     WAIT_START = auto()
     HUMAN_TURN = auto()
-    WAIT_VISION_RETRY = auto()
     ROBOT_THINK = auto()
     RULE_BREAK = auto()
     ROBOT_PLAN = auto()
@@ -52,12 +53,14 @@ class GameOrchestratorNode(Node):
         self.declare_parameter("vision_service", "/vision/get_board_state")
         self.declare_parameter("ai_service", "/ai_agent/get_robot_move")
         self.declare_parameter("motion_action", "/execute_motion")
+        self.declare_parameter("rule_break_service", "/fix_rule_break")
 
         self.wake_srv = self.get_parameter("wake_service").value
         self.speech_srv = self.get_parameter("speech_service").value
         self.vision_srv = self.get_parameter("vision_service").value
         self.ai_srv = self.get_parameter("ai_service").value
         self.motion_action_name = self.get_parameter("motion_action").value
+        rule_break_srv = self.get_parameter("rule_break_service").value
 
         # ---------- Pub ----------
         self.difficulty_pub = self.create_publisher(Int32, "/game_level", 10)
@@ -77,6 +80,7 @@ class GameOrchestratorNode(Node):
         self.speech_client = self.create_client(Trigger, self.speech_srv)
         self.vision_client = self.create_client(GetBoardState, self.vision_srv)
         self.ai_client = self.create_client(AiCompute, self.ai_srv)
+        self.rule_break_client = self.create_client(FixRuleBreak,rule_break_srv)
 
         self.motion_client = ActionClient(self, ExecuteMotion, self.motion_action_name)
 
@@ -88,6 +92,7 @@ class GameOrchestratorNode(Node):
         self.speech_future = None
         self.vision_future = None
         self.ai_future = None
+        self.rule_break_future = None
 
         self.motion_goal_future = None
         self.motion_result_future = None
@@ -243,7 +248,7 @@ class GameOrchestratorNode(Node):
                     self.vision_future = None
 
                     self.game_state = [row.data for row in res.board_state]
-                    self.prev_state = self.game_state.copy()  # 기준 상태 저장
+                    self.prev_state = copy.deepcopy(self.game_state)  # 기준 상태 저장
                     self._human_turn_started = True
                     self.log(f"Human Turn started, prev_state saved: {self.prev_state}")
 
@@ -271,17 +276,15 @@ class GameOrchestratorNode(Node):
                         res = self.vision_future.result()
                         self.vision_future = None
 
-                        current_state = [row.data for row in res.board_state]
+                        self.game_state = [row.data for row in res.board_state]
 
                         # prev_state와 비교 → self.added 계산
-                        self.added = self.compute_added(self.prev_state, current_state)
+                        self.added = self.compute_added(self.prev_state, self.game_state)
                         self.log(f"Detected human additions/moves: {self.added}")
 
                         self._human_turn_initialized = False
                         self._awaiting_final_state = False
                         self.state = OrchestratorState.ROBOT_THINK
-
-
 
             # ---------------- ROBOT_THINK ----------------
             elif self.state == OrchestratorState.ROBOT_THINK:
@@ -289,6 +292,15 @@ class GameOrchestratorNode(Node):
                 msg.data = self.state.name
                 self.state_pub.publish(msg)
 
+                # ---------- 1. 사람이 아무 것도 안 둠 ----------
+                if not self.added:
+                    self.log(
+                        "❌ No human move detected → back to HUMAN_TURN, replace your pawn or wall"
+                    )
+                    self.state = OrchestratorState.HUMAN_TURN
+                    return
+
+                # ---------- 2. AI 호출 ----------
                 if self.ai_future is None:
                     if self.ai_client.wait_for_service(timeout_sec=0.0):
                         req = AiCompute.Request()
@@ -296,11 +308,56 @@ class GameOrchestratorNode(Node):
                         self.ai_future = self.ai_client.call_async(req)
                     return
 
+                # ---------- 3. AI 결과 처리 ----------
                 if self.ai_future.done():
                     res = self.ai_future.result()
                     self.ai_future = None
                     self.robot_cmd = res.ai_cmd
+
+                    # 🚫 규칙 위반 판정은 여기서!
+                    if self.robot_cmd and self.robot_cmd[0] == 0:
+                        self.log("🚫 Rule break detected by AI → RULE_BREAK")
+                        self.state = OrchestratorState.RULE_BREAK
+                        return
+
+                    # ✅ 정상
                     self.state = OrchestratorState.ROBOT_PLAN
+
+
+            # ---------------- RULE_BREAK ----------------
+            elif self.state == OrchestratorState.RULE_BREAK:
+                msg = String()
+                msg.data = self.state.name
+                self.state_pub.publish(msg)
+
+                # --- 서비스 호출 ---
+                if self.rule_break_future is None:
+                    if not self.rule_break_client.wait_for_service(timeout_sec=0.0):
+                        return
+
+                    req = FixRuleBreak.Request()
+                    req.prev_state_flat = self.flatten_state(self.prev_state)
+                    req.current_state_flat = self.flatten_state(self.game_state)
+
+                    self.log(
+                        f"Calling FixRuleBreak "
+                        f"(prev={req.prev_state_flat}, curr={req.current_state_flat})"
+                    )
+
+                    self.rule_break_future = self.rule_break_client.call_async(req)
+                    return
+
+                # --- 응답 처리 ---
+                if self.rule_break_future.done():
+                    res = self.rule_break_future.result()
+                    self.rule_break_future = None
+
+                    if res and res.success:
+                        self.log("✅ Rule break fixed → back to HUMAN_TURN")
+                        self.state = OrchestratorState.HUMAN_TURN
+                    else:
+                        self.log(f"❌ Rule break fix failed: {res.message if res else 'no response'}")
+                        self.state = OrchestratorState.ERROR
 
             # ---------------- ROBOT_PLAN ----------------
             elif self.state == OrchestratorState.ROBOT_PLAN:
@@ -408,6 +465,16 @@ class GameOrchestratorNode(Node):
 
         # added는 리스트 안에 한 원소만 넣기
         return list(added[0]) if added else []
+    
+    # ==================================================
+    def flatten_state(self, state_2d):
+        """
+        [[1,2,3], [-1,4,5]] → [1,2,3,-1,4,5]
+        """
+        flat = []
+        for row in state_2d:
+            flat.extend(row)
+        return flat
 
     # ==================================================
     def build_motion_goal(self, motion):
@@ -486,7 +553,6 @@ class GameOrchestratorNode(Node):
                     {'primitive': 'movej_pose', 'pose': pick_pose}
                 ]
             }
-        print(motion)
 
         return motion
 

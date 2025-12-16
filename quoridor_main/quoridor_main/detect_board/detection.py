@@ -143,7 +143,7 @@ class ObjectDetectionNode(Node):
 
         for det in detections:
             # 🔒 temporal 신뢰도 필터
-            if det["count"] < 4:
+            if det["count"] < 3:
                 continue
 
             cx, cy = map(int, det["center"])

@@ -10,6 +10,7 @@ from rclpy.action import ActionClient
 from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.action import ExecuteMotion
+from qulido_robot_msgs.srv import CleanUpTrigger
 
 
 
@@ -44,6 +45,8 @@ class CleanUpNode(Node):
 
         self.current_phase = None   # "PAWN" | "WALL"
         self.current_idx = 0
+        self.sorted_walls = 0
+        self.wall_used = 0
 
         # ---------- Poses (TODO: 실제 값) ----------
         self.detection_pose = None
@@ -59,10 +62,15 @@ class CleanUpNode(Node):
             [231.01, 102.933, 54.014, 152.954, 179.919, -117.273],
             [230.446, 162.316, 54.292, 123.353, 179.93, -146.878]
         ]
-        # self.player_wall_init_pose = [
-        #     [563.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-        #     # 이후는 x만!
-        # ]
+        self.player_wall_init_pose = [
+            [563.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+            [533.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+            [503.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+            [473.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+            [443.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+            [413.29, 257.90, 58.06, 99.04, -179.72, 98.55]
+        ]
+
         self.player_wall_init_pose = [563.29, 257.90, 58.06, 99.04, -179.72, 98.55]
 
         self.AI_pawn_init_pose = [292.34, 9.96, 69.72, 41.50, -179.47, 41.56]
@@ -165,45 +173,13 @@ class CleanUpNode(Node):
 
             self.board_state = [row.data for row in res.board_state]
             self.seq_list = []
+            self.sorted_walls = 0
 
             for cmd in self.board_state:
                 motion_seq = self.create_motion_sequence(cmd)
                 self.seq_list.append(motion_seq)
+                self.sorted_walls += 1
 
-            # self._clean_up_started = True
-            # # self.now_robot_action = False
-            # self.now_obj = 0
-            # self.obj_cnt = len(self.board_state)
-
-        # if self._clean_up_started == True:
-        #     while not self.now_robot_action:
-        #         robot_motion = self.seq_list[self.now_obj]
-        #         if self.motion_goal_future is None:
-        #             goal = orch.build_motion_goal(robot_motion)
-        #             self.motion_goal_future = self.motion_client.send_goal_async(goal)
-        #             continue
-
-        #         if self.motion_goal_future.done() and self.motion_result_future is None:
-        #             goal_handle = self.motion_goal_future.result()
-        #             if not goal_handle.accepted: # 에러 예외처리
-        #                 continue
-        #             self.motion_result_future = goal_handle.get_result_async()
-        #             continue
-
-        #         if self.motion_result_future and self.motion_result_future.done():
-        #             result = self.motion_result_future.result().result
-        #             self.motion_goal_future = None
-        #             self.motion_result_future = None
-
-        #             if result.success:
-        #                 self.log("하나 정리 끝")
-        #                 if self.now_obj == self.obj_cnt - 1:
-        #                     self.now_robot_action = False
-        #                     self._clean_up_started = False
-        #                     break
-        #                 self.now_obj += 1
-        #             else:
-        #                 pass # 에러 예외처리
 
         if self.seq_list and not self._clean_up_started:
             self._clean_up_started = True
@@ -214,17 +190,15 @@ class CleanUpNode(Node):
                 self._clean_up_started = False
                 return
             
-            # 🔴 plan 타이머 끄기
+            # 🔴 main 타이머 끄기
             if self.main_timer:
                 self.main_timer.cancel()
                 self.main_timer = None
 
-            # 🟢 cleanup 타이머 켜기
+            # 🟢 robot 타이머 켜기
             self.robot_timer = self.create_timer(
                 0.1, self.robot_motion_execute
             )
-
-
 
 
     def robot_motion_execute(self):
@@ -326,8 +300,10 @@ class CleanUpNode(Node):
                     angle = pos_b[2]
                     pos_b_xy = pos_b[:2]
                     pos_orig = self.set_wall_pose(*pos_b_xy, "misaligned", angle)
-                # 목적지 일단 하나만 만들고 그다음에 wall_used해보자.
-                pos_dst = self.set_wall_pose(self.player_wall_init_pose[0], self.player_wall_init_pose[1], "horizontal")
+                if self.sorted_walls < self.wall_used:
+                    pos_dst = self.set_wall_pose(self.AI_wall_init_pose[self.sorted_walls][0], self.player_wall_init_pose[self.sorted_walls][1], "vertical")
+                elif self.sorted_walls >= self.wall_used:
+                    pos_dst = self.set_wall_pose(self.player_wall_init_pose[self.sorted_walls - self.wall_used][0], self.player_wall_init_pose[self.sorted_walls - self.wall_used][1], "horizontal")
                 # 출발지cell (위)
                 pos_orig_up = pos_orig.copy()
                 pos_orig_up[2] += 60
@@ -351,35 +327,6 @@ class CleanUpNode(Node):
                     ]
                 }
                 
-                
-            # else: # wall
-            #     pos_obj = self.wall_pose[self.wall_used]
-            #     self.wall_used+=1
-            #     if obj==-2:
-            #         pos = self.wall_board_to_base(*pos_b, "horizontal")
-            #     elif obj==2:
-            #         pos = self.wall_board_to_base(*pos_b, "vertical")
-            #     pos_pre = pos.copy()
-            #     pos_pre[2] += 60
-            #     pos_obj_pre = pos_obj.copy()
-            #     pos_obj_pre[2] += 60
-            #     pos[2] += 10
-            #     motion = {
-            #         'sequence': [
-            #             {'primitive': 'operate_gripper', 'width': 350},
-            #             {'primitive': 'movej_pose', 'pose': pick_pose},
-            #             {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-            #             {'primitive': 'movel_pose', 'pose': pos_obj},
-            #             {'primitive': 'operate_gripper', 'width': 250},
-            #             {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-            #             {'primitive': 'movel_pose', 'pose': pos_pre},
-            #             {'primitive': 'movel_pose', 'pose': pos},
-            #             {'primitive': 'force_control'},
-            #             {'primitive': 'operate_gripper', 'width': 350},
-            #             {'primitive': 'movel_pose', 'pose': pos_pre},
-            #             {'primitive': 'movej_pose', 'pose': pick_pose}
-            #         ]
-            #     }
             print(motion)
 
             return motion
@@ -445,17 +392,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
-
-    # # ==================================================
-    # # Finish
-    # # ==================================================
-    # def finish(self, success, message):
-    #     self.get_logger().info(f"Cleanup finished: {message}")
-
-    #     self._response.success = success
-    #     self._response.message = message
-
-    #     self._active = False
-    #     self._response = None
-

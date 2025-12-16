@@ -325,10 +325,11 @@ class ObjectDetectionNode(Node):
                 continue
             clean_board_state.append([2, x, y])
         
+        # Misaligned Wall
         for x, y, _, angle in misaligned_walls:
             if x is None or y is None:
                 continue
-            clean_board_state.append([3, x, y, angle])
+            clean_board_state.append([3, x, y, int(angle)])
 
         return clean_board_state
 

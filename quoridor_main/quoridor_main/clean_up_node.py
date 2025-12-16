@@ -51,6 +51,30 @@ class CleanUpNode(Node):
         self.wall_origin_pose = None
         self.camera_pose = [-29.062, -49.05, 96.263, 13.934, 106.247, 68.124] # joint
 
+        self.AI_wall_init_pose = [
+            [233.034, -137.454, 54.061, 148.394, 179.928, -121.78],
+            [232.998, -77.359, 54.039, 148.814, 179.924, -121.369],
+            [232.963, -17.258, 54.027, 148.992, 179.923, -121.209],
+            [231.999, 42.815, 54.024, 150.607, 179.921, -119.603],
+            [231.01, 102.933, 54.014, 152.954, 179.919, -117.273],
+            [230.446, 162.316, 54.292, 123.353, 179.93, -146.878]
+        ]
+        # self.player_wall_init_pose = [
+        #     [563.29, 257.90, 58.06, 99.04, -179.72, 98.55],
+        #     # 이후는 x만!
+        # ]
+        self.player_wall_init_pose = [563.29, 257.90, 58.06, 99.04, -179.72, 98.55]
+
+        self.AI_pawn_init_pose = [292.34, 9.96, 69.72, 41.50, -179.47, 41.56]
+        self.player_pawn_init_pose = [654.72, 16.22, 67.54, 50.38, -179.66, 50.56]
+
+        # ------------Futures--------------
+        self._clean_up_initialized = False
+        self._clean_up_started = False
+        self.motion_goal_future = None
+        self.motion_result_future = None
+        self.vision_future = None
+
         self.create_timer(0.1, self.plan_clean_up_motion)
         self.get_logger().info("CleanUpNode ready")
 
@@ -127,113 +151,206 @@ class CleanUpNode(Node):
 
         # --- Step 4: Vision 결과 처리 ---
         if self.vision_future and self.vision_future.done() and not self._clean_up_started:
-            res = self.vision_future.result()
+            res = self.vision_future.result() #clean_board_state가 올 것
             self.vision_future = None
 
-            ###sequence 제작
+            self.board_state = [row.data for row in res.board_state]
+            self.seq_list = []
 
+            for cmd in self.board_state:
+                motion_seq = self.create_motion_sequence(cmd)
+                self.seq_list.append(motion_seq)
 
+            # self._clean_up_started = True
+            # # self.now_robot_action = False
+            # self.now_obj = 0
+            # self.obj_cnt = len(self.board_state)
+
+        # if self._clean_up_started == True:
+        #     while not self.now_robot_action:
+        #         robot_motion = self.seq_list[self.now_obj]
+        #         if self.motion_goal_future is None:
+        #             goal = orch.build_motion_goal(robot_motion)
+        #             self.motion_goal_future = self.motion_client.send_goal_async(goal)
+        #             continue
+
+        #         if self.motion_goal_future.done() and self.motion_result_future is None:
+        #             goal_handle = self.motion_goal_future.result()
+        #             if not goal_handle.accepted: # 에러 예외처리
+        #                 continue
+        #             self.motion_result_future = goal_handle.get_result_async()
+        #             continue
+
+        #         if self.motion_result_future and self.motion_result_future.done():
+        #             result = self.motion_result_future.result().result
+        #             self.motion_goal_future = None
+        #             self.motion_result_future = None
+
+        #             if result.success:
+        #                 self.log("하나 정리 끝")
+        #                 if self.now_obj == self.obj_cnt - 1:
+        #                     self.now_robot_action = False
+        #                     self._clean_up_started = False
+        #                     break
+        #                 self.now_obj += 1
+        #             else:
+        #                 pass # 에러 예외처리
+
+        if not self._clean_up_started:
             self._clean_up_started = True
+            self.now_obj = 0
+            self.obj_cnt = len(self.seq_list)
+
+            self.motion_goal_future = None
+            self.motion_result_future = None
+
+            self.cleanup_timer = self.create_timer(
+                0.1, self.robot_motion_execute
+            )
 
 
-            self.log(f"Human Turn started, prev_state saved: {self.prev_state}")
+    def robot_motion_execute(self):
+        if not self._clean_up_started:
+            return
+        robot_motion = self.seq_list[self.now_obj]
+        if self.motion_goal_future is None:
+            goal = orch.build_motion_goal(robot_motion)
+            self.motion_goal_future = self.motion_client.send_goal_async(goal)
+            return
 
+        if self.motion_goal_future.done() and self.motion_result_future is None:
+            goal_handle = self.motion_goal_future.result()
+            if not goal_handle.accepted: # 에러 예외처리
+                self.motion_goal_future = None
+                return
+            self.motion_result_future = goal_handle.get_result_async()
+            return
 
+        if self.motion_result_future and self.motion_result_future.done():
+            result = self.motion_result_future.result().result
+            self.motion_goal_future = None
+            self.motion_result_future = None
 
-    def create_motion_sequence(self, cmd):
-            seq_list = []
-            
+            if result.success:
+                self.log("하나 정리 끝")
+                if self.now_obj == self.obj_cnt - 1:
+                    self.log(f"End Cleaning")
+                    self._clean_up_started = False
+                    self.cleanup_timer.cancel()
+                    return
+                self.now_obj += 1
+
+    def create_motion_sequence(self, cmd):            
             obj = cmd[0]
+            # 출발지cell
             pos_b = cmd[1:]
 
             # print(cmd)
 
-            if obj==-1: # AI pawn
-                pos = self.set_pawn_pose(*pos_b)
-                pos_obj
-                pos[2] += 60
-
+            if abs(obj)==1: # AI/Player pawn
+                # 출발지cell(아래)
+                pos_orig = self.set_pawn_pose(*pos_b)
+                # 목적지
+                if obj == -1:
+                    pos_dst = self.set_pawn_pose(self.AI_pawn_init_pose[0], self.AI_pawn_init_pose[1])
+                elif obj == 1: 
+                    pos_dst = self.set_pawn_pose(self.player_pawn_init_pose[0], self.player_pawn_init_pose[1])
+                # 출발지cell (위)
+                pos_orig_up = pos_orig.copy()
+                pos_orig_up[2] += 60
+                pos_dst_up = pos_dst.copy()
+                pos_dst_up[2] += 60
+                pos_dst[2] += 10
                 motion = {
                     'sequence': [
                         {'primitive': 'operate_gripper', 'width': 450},
                         {'primitive': 'movej_pose', 'pose': pick_pose},
-                        {'primitive': 'movel_pose', 'pose': pos},
-                        {'primitive': 'movel_pose', 'pose': pos_obj},
+                        {'primitive': 'movel_pose', 'pose': pos_orig_up},
+                        {'primitive': 'movel_pose', 'pose': pos_orig},
                         {'primitive': 'operate_gripper', 'width':350},
-                        {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
-                        {'primitive': 'movel_pose', 'pose': pos},
+                        {'primitive': 'movel_pose', 'pose': pos_orig_up},
+                        {'primitive': 'movel_pose', 'pose': pos_dst_up},
+                        {'primitive': 'movel_pose', 'pose': pos_dst},
                         {'primitive': 'force_control'},
                         {'primitive': 'operate_gripper', 'width': 450},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
+                        {'primitive': 'movel_pose', 'pose': pos_dst_up},
                         {'primitive': 'movej_pose', 'pose': pick_pose}
                     ]
                 }
-
+            # elif abs(obj)==2: # vertical, horizontal walls
+            else: # Walls 3types
+                # 출발지 아래
+                if obj == -2:
+                    pos_orig = self.set_wall_pose(*pos_b, "horizontal")
+                elif obj == 2:
+                    pos_orig = self.set_wall_pose(*pos_b, "vertical")
+                elif obj == 3:
+                    if len(pos_b) < 4:
+                        print("error")
+                    angle = pos_b[3]
+                    pos_orig = self.set_wall_pose(*pos_b, "misaligned", angle)
+                # 목적지 일단 하나만 만들고 그다음에 wall_used해보자.
+                pos_dst = self.set_wall_pose(self.player_wall_init_pose[0], self.player_wall_init_pose[1], "horizontal")
+                # 출발지cell (위)
+                pos_orig_up = pos_orig.copy()
+                pos_orig_up[2] += 60
+                pos_dst_up = pos_dst.copy()
+                pos_dst_up[2] += 60
+                pos_dst[2] += 10
+                motion = {
+                    'sequence': [
+                        {'primitive': 'operate_gripper', 'width': 350},
+                        {'primitive': 'movej_pose', 'pose': pick_pose},
+                        {'primitive': 'movel_pose', 'pose': pos_orig_up},
+                        {'primitive': 'movel_pose', 'pose': pos_orig},
+                        {'primitive': 'operate_gripper', 'width':250},
+                        {'primitive': 'movel_pose', 'pose': pos_orig_up},
+                        {'primitive': 'movel_pose', 'pose': pos_dst_up},
+                        {'primitive': 'movel_pose', 'pose': pos_dst},
+                        {'primitive': 'force_control'},
+                        {'primitive': 'operate_gripper', 'width': 350},
+                        {'primitive': 'movel_pose', 'pose': pos_dst_up},
+                        {'primitive': 'movej_pose', 'pose': pick_pose}
+                    ]
+                }
                 
-                for state in self.game_state:
-                    if state[0] == -1:
-                        pos_obj_b = state[1:]
-                        break
-                pos = self.pawn_board_to_base(*pos_b)
-                pos_obj = self.pawn_board_to_base(*pos_obj_b)
-                pos_pre = pos.copy()
-                pos_pre[2] += 60
-                pos_obj_pre = pos_obj.copy()
-                pos_obj_pre[2] += 60
-                pos[2] += 10
-                motion = {
-                    'sequence': [
-                        {'primitive': 'operate_gripper', 'width': 450},
-                        {'primitive': 'movej_pose', 'pose': pick_pose},
-                        {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-                        {'primitive': 'movel_pose', 'pose': pos_obj},
-                        {'primitive': 'operate_gripper', 'width':350},
-                        {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
-                        {'primitive': 'movel_pose', 'pose': pos},
-                        {'primitive': 'force_control'},
-                        {'primitive': 'operate_gripper', 'width': 450},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
-                        {'primitive': 'movej_pose', 'pose': pick_pose}
-                    ]
-                }
-            else: # wall
-                pos_obj = self.wall_pose[self.wall_used]
-                self.wall_used+=1
-                if obj==-2:
-                    pos = self.wall_board_to_base(*pos_b, "horizontal")
-                elif obj==2:
-                    pos = self.wall_board_to_base(*pos_b, "vertical")
-                pos_pre = pos.copy()
-                pos_pre[2] += 60
-                pos_obj_pre = pos_obj.copy()
-                pos_obj_pre[2] += 60
-                pos[2] += 10
-                motion = {
-                    'sequence': [
-                        {'primitive': 'operate_gripper', 'width': 350},
-                        {'primitive': 'movej_pose', 'pose': pick_pose},
-                        {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-                        {'primitive': 'movel_pose', 'pose': pos_obj},
-                        {'primitive': 'operate_gripper', 'width': 250},
-                        {'primitive': 'movel_pose', 'pose': pos_obj_pre},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
-                        {'primitive': 'movel_pose', 'pose': pos},
-                        {'primitive': 'force_control'},
-                        {'primitive': 'operate_gripper', 'width': 350},
-                        {'primitive': 'movel_pose', 'pose': pos_pre},
-                        {'primitive': 'movej_pose', 'pose': pick_pose}
-                    ]
-                }
-            print(motion)
+                
+            # else: # wall
+            #     pos_obj = self.wall_pose[self.wall_used]
+            #     self.wall_used+=1
+            #     if obj==-2:
+            #         pos = self.wall_board_to_base(*pos_b, "horizontal")
+            #     elif obj==2:
+            #         pos = self.wall_board_to_base(*pos_b, "vertical")
+            #     pos_pre = pos.copy()
+            #     pos_pre[2] += 60
+            #     pos_obj_pre = pos_obj.copy()
+            #     pos_obj_pre[2] += 60
+            #     pos[2] += 10
+            #     motion = {
+            #         'sequence': [
+            #             {'primitive': 'operate_gripper', 'width': 350},
+            #             {'primitive': 'movej_pose', 'pose': pick_pose},
+            #             {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+            #             {'primitive': 'movel_pose', 'pose': pos_obj},
+            #             {'primitive': 'operate_gripper', 'width': 250},
+            #             {'primitive': 'movel_pose', 'pose': pos_obj_pre},
+            #             {'primitive': 'movel_pose', 'pose': pos_pre},
+            #             {'primitive': 'movel_pose', 'pose': pos},
+            #             {'primitive': 'force_control'},
+            #             {'primitive': 'operate_gripper', 'width': 350},
+            #             {'primitive': 'movel_pose', 'pose': pos_pre},
+            #             {'primitive': 'movej_pose', 'pose': pick_pose}
+            #         ]
+            #     }
+            self.log(motion)
 
             return motion
 
 
     def set_pawn_pose(self, x, y):
-        x = x
-        y = y
+        x = float(x)
+        y = float(y)
         z = 70.0
         rx, ry, rz = map(float, pick_pose_l[3:])
 
@@ -241,128 +358,33 @@ class CleanUpNode(Node):
 
 
 
+    def set_wall_pose(self, x, y, orientation, angle=None):
+        x = float(x)
+        y = float(y)
+        z = 50.0
+        rx, ry, rz = pick_pose_l[3:]
 
+        if orientation == "horizontal":
+            rz += 90
+        elif orientation == "misaligned": 
+            if angle is None:
+                raise ValueError("misaligned wall requires angle")
 
+            # 🔑 핵심: angle 그대로 joint6에 반영
+            # YOLO angle 기준 = wall 방향
+            rz += angle
 
+            # 안정성: [-180, 180] 정규화
+            if rz > 180.0:
+                rz -= 360.0
+            elif rz < -180.0:
+                rz += 360.0
 
+        else:
+            raise ValueError(f"Unknown wall orientation: {orientation}")
 
+        return list(map(float, [x, y, z, rx, ry, rz]))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def on_detection_pose_reached(self, success):
-        if not success:
-            self.finish(False, "Failed to reach detection pose")
-            return
-        self.call_detection()
-
-    # ==================================================
-    # Step 2: Detection
-    # ==================================================
-    def call_detection(self):
-        self.get_logger().info("Running detection")
-        # TODO: detect service
-        self.on_detection_done_mock()
-
-    def on_detection_done(self, result):
-        """
-        result.objects → [{type: 'pawn'|'wall', pose: ...}, ...]
-        """
-        self.detected_pawns = []
-        self.detected_walls = []
-
-        for obj in result.objects:
-            if obj.type == 'pawn':
-                self.detected_pawns.append(obj)
-            elif obj.type == 'wall':
-                self.detected_walls.append(obj)
-
-        self.start_pawn_cleanup()
-
-    def on_detection_done_mock(self):
-        self.detected_pawns = ['pawn1', 'pawn2']
-        self.detected_walls = ['wall1', 'wall2', 'wall3']
-        self.start_pawn_cleanup()
-
-    # ==================================================
-    # Step 3: Pawn Cleanup
-    # ==================================================
-    def start_pawn_cleanup(self):
-        self.get_logger().info("Starting pawn cleanup")
-        self.current_phase = "PAWN"
-        self.current_idx = 0
-        self.cleanup_next()
-
-    # ==================================================
-    # Step 4: Wall Cleanup
-    # ==================================================
-    def start_wall_cleanup(self):
-        self.get_logger().info("Starting wall cleanup")
-        self.current_phase = "WALL"
-        self.current_idx = 0
-        self.cleanup_next()
-
-    # ==================================================
-    # Common cleanup executor
-    # ==================================================
-    def cleanup_next(self):
-        target_list = (
-            self.detected_pawns if self.current_phase == "PAWN"
-            else self.detected_walls
-        )
-
-        if self.current_idx >= len(target_list):
-            if self.current_phase == "PAWN":
-                self.start_wall_cleanup()
-            else:
-                self.finish(True, "Cleanup completed")
-            return
-
-        obj = target_list[self.current_idx]
-        self.get_logger().info(
-            f"Cleaning {self.current_phase}: {obj}"
-        )
-
-        origin_pose = (
-            self.pawn_origin_pose if self.current_phase == "PAWN"
-            else self.wall_origin_pose
-        )
-
-        # TODO:
-        # motion = self.build_cleanup_motion(obj, origin_pose)
-        # self.send_motion(motion)
-
-        self.on_object_done(True)
-
-    def on_object_done(self, success):
-        if not success:
-            self.finish(False, f"{self.current_phase} cleanup failed")
-            return
-
-        self.current_idx += 1
-        self.cleanup_next()
-
-    # ==================================================
-    # Finish
-    # ==================================================
-    def finish(self, success, message):
-        self.get_logger().info(f"Cleanup finished: {message}")
-
-        self._response.success = success
-        self._response.message = message
-
-        self._active = False
-        self._response = None
 
 
 def main(args=None):
@@ -375,3 +397,17 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+    # # ==================================================
+    # # Finish
+    # # ==================================================
+    # def finish(self, success, message):
+    #     self.get_logger().info(f"Cleanup finished: {message}")
+
+    #     self._response.success = success
+    #     self._response.message = message
+
+    #     self._active = False
+    #     self._response = None
+

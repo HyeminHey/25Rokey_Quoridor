@@ -106,15 +106,29 @@ class YoloModel:
             #         orientation = "horizontal"
             #     else:
             #         orientation = "vertical"
-            if abs(mean_angle) < angle_th:
+
+            # if abs(mean_angle) < angle_th:
+            #     orientation = "horizontal"
+            #     grasp_angle = 0.0
+            # elif abs(abs(mean_angle) - 90.0) < angle_th:
+            #     orientation = "vertical"
+            #     grasp_angle = 90.0
+            # else:
+            #     orientation = "misaligned"
+            #     grasp_angle = mean_angle  
+
+
+            folded_angle = self._fold_angle_180(mean_angle)
+
+            if folded_angle < angle_th:
                 orientation = "horizontal"
                 grasp_angle = 0.0
-            elif abs(abs(mean_angle) - 90.0) < angle_th:
+            elif abs(folded_angle - 90.0) < angle_th:
                 orientation = "vertical"
                 grasp_angle = 90.0
             else:
                 orientation = "misaligned"
-                grasp_angle = mean_angle  
+                grasp_angle = mean_angle
 
             fused.append({
                 "class": det["class"],
@@ -155,3 +169,13 @@ class YoloModel:
         rad = np.deg2rad(angles)
         mean_rad = np.arctan2(np.mean(np.sin(rad)), np.mean(np.cos(rad)))
         return np.rad2deg(mean_rad)
+    
+    def _fold_angle_180(self, angle):
+        """
+        angle (deg) → [0, 90] 범위로 folding
+        0 ≡ 180, 90 ≡ -90
+        """
+        a = abs(angle) % 180.0
+        if a > 90.0:
+            a = 180.0 - a
+        return a

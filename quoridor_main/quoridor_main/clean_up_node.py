@@ -414,8 +414,8 @@ class CleanUpNode(Node):
             elif rz < -180.0:
                 rz += 360.0
 
-        else:
-            raise ValueError(f"Unknown wall orientation: {orientation}")
+        # else:
+        #     raise ValueError(f"Unknown wall orientation: {orientation}")
 
         return list(map(float, [x, y, z, rx, ry, rz]))
 

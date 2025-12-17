@@ -52,26 +52,13 @@ class YoloModel:
                 #     continue
                 mask = res.masks.xy[i].astype(np.int32)
 
-                # # 🔹 centroid
-                # M = cv2.moments(mask)
-                # if M["m00"] == 0:
-                #     continue
-
-                # cx = M["m10"] / M["m00"]
-                # cy = M["m01"] / M["m00"]
-
-                # # OBB (orientation)
-                # rect = cv2.minAreaRect(mask)
-                # angle = self._normalize_angle(rect)
-                # # 🔹 mask bounding box → 방향 판별용
-                # x, y, w, h = cv2.boundingRect(mask)
-
-                # === PCA 기반 방향 ===
-                angle = self._pca_angle(mask)
 
                 # === minAreaRect ===
                 (cx, cy), (w, h), _ = cv2.minAreaRect(mask)
                 center = np.array([cx, cy])
+
+                # === PCA 기반 방향 ===
+                angle = self._pca_angle(mask)
 
 
                 raw.append({
@@ -116,20 +103,17 @@ class YoloModel:
             if folded_angle < angle_th:
                 orientation = "horizontal"
                 grasp_angle = 0.0
-                offset = np.array([0, -heights.mean() * 0.3])
             elif abs(folded_angle - 90.0) < angle_th:
                 orientation = "vertical"
                 grasp_angle = 90.0
-                offset = np.array([-widths.mean() * 0.3, 0])
             else:
                 orientation = "misaligned"
                 grasp_angle = mean_angle
-                offset = np.array([0, 0])
 
 
             fused.append({
                 "class": det["class"],
-                "center": centers.mean(axis=0) + offset,
+                "center": centers.mean(axis=0),
                 "score": scores.mean(),
                 "count": len(group),
                 "orientation": orientation,

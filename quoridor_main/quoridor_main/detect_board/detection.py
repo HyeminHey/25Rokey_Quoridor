@@ -201,15 +201,12 @@ class ObjectDetectionNode(Node):
 
             cls = det["class"]
             
-            PAWN_Y_OFFSET = -15.0  # mm (실험으로 조정)
 
             if cls == "red_pawn":
-                x, y, z = base_xyz
-                self.red_pawns.append((x, y + PAWN_Y_OFFSET, z))
+                self.red_pawns.append(base_xyz)
 
             elif cls == "blue_pawn":
-                x, y, z = base_xyz
-                self.blue_pawns.append((x, y + PAWN_Y_OFFSET, z))
+                self.blue_pawns.append(base_xyz)
 
             elif cls == "wall":
                 yaw = self.image_angle_to_base_yaw(det["angle"])

@@ -119,24 +119,15 @@ class ObjectDetectionNode(Node):
         # 인식 수행
         self.process_scene()
 
-        board_array = self.build_board_state_array(
-            self.red_pawns,
-            self.blue_pawns,
-            self.horizontal_walls,
-            self.vertical_walls
-        )
-
-        # cleanup용 board array 생성
-        clean_board_array = self.build_clean_board_state_array(
-            self.red_pawns,
-            self.blue_pawns,
-            self.horizontal_walls,
-            self.vertical_walls,
-            self.misaligned_walls,
-        )
 
         # 실제코드
         if self.now_state == "HUMAN_TURN":
+            board_array = self.build_board_state_array(
+                self.red_pawns,
+                self.blue_pawns,
+                self.horizontal_walls,
+                self.vertical_walls
+            )
             # 🔥 Int32Row[] 로 변환
             response.board_state = []
             for item in board_array:
@@ -149,6 +140,14 @@ class ObjectDetectionNode(Node):
             )
 
         elif self.now_state == "CLEAN_UP":
+            # cleanup용 board array 생성
+            clean_board_array = self.build_clean_board_state_array(
+                self.red_pawns,
+                self.blue_pawns,
+                self.horizontal_walls,
+                self.vertical_walls,
+                self.misaligned_walls,
+            )
             # 🔥 Int32Row[] 로 변환
             response.board_state = []
             for item in clean_board_array:

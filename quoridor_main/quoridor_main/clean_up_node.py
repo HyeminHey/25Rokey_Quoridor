@@ -74,8 +74,6 @@ class CleanUpNode(Node):
             [413.29, 257.90, 58.06, 99.04, -179.72, 98.55]
         ]
 
-        self.player_wall_init_pose = [563.29, 257.90, 58.06, 99.04, -179.72, 98.55]
-
         self.AI_pawn_init_pose = [292.34, 9.96, 69.72, 41.50, -179.47, 41.56]
         self.player_pawn_init_pose = [654.72, 16.22, 67.54, 50.38, -179.66, 50.56]
 
@@ -305,9 +303,13 @@ class CleanUpNode(Node):
                     angle = pos_b[2]
                     pos_b_xy = pos_b[:2]
                     pos_orig = self.set_wall_pose(*pos_b_xy, "misaligned", angle)
+                
+                self.get_logger().info(f"sorted={self.sorted_walls}, used={self.wall_used}")
                 if self.sorted_walls < self.wall_used:
-                    pos_dst = self.set_wall_pose(self.AI_wall_init_pose[self.sorted_walls][0], self.player_wall_init_pose[self.sorted_walls][1], "vertical")
+                    self.get_logger().info(f"ai wall = ({self.AI_wall_init_pose[self.sorted_walls][0]},{self.AI_wall_init_pose[self.sorted_walls][1]}")
+                    pos_dst = self.set_wall_pose(self.AI_wall_init_pose[self.sorted_walls][0], self.AI_wall_init_pose[self.sorted_walls][1], "vertical")
                 elif self.sorted_walls >= self.wall_used:
+                    self.get_logger().info(f"player wall = ({self.player_wall_init_pose[self.sorted_walls - self.wall_used][0]},{self.player_wall_init_pose[self.sorted_walls - self.wall_used][1]}")
                     pos_dst = self.set_wall_pose(self.player_wall_init_pose[self.sorted_walls - self.wall_used][0], self.player_wall_init_pose[self.sorted_walls - self.wall_used][1], "horizontal")
                 # 출발지cell (위)
                 pos_orig_up = pos_orig.copy()
@@ -332,8 +334,9 @@ class CleanUpNode(Node):
                     ]
                 }
                 self.sorted_walls += 1
+                self.get_logger().info(f"sorted walls = {self.sorted_walls}")
                 
-            print(motion)
+            # print(motion)
 
             return motion
 

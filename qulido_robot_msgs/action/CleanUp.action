@@ -1,0 +1,11 @@
+# Goal
+int32 wall_used
+---
+# Result
+bool success
+string message
+---
+# Feedback
+int32 current_object
+int32 total_objects
+string status

@@ -230,7 +230,7 @@ class ObjectDetectionNode(Node):
         # resource_path = os.path.abspath(
         #     os.path.join(current_dir, "..", "..", "resource")
         # )
-        resource_path = "/home/hyemin/quoridor_ws/src/quoridor_main/resource"
+        resource_path = "/home/rokey/quoridor_ws/src/quoridor_main/resource"
         gripper2cam = np.load(
             os.path.join(resource_path, "T_gripper2camera.npy")
         )

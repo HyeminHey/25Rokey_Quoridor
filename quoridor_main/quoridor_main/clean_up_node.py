@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import rclpy
+import time
 from rclpy.node import Node
-from std_srvs.srv import Trigger
 from std_msgs.msg import String, Bool
 from rclpy.action import ActionClient
+from rclpy.executors import MultiThreadedExecutor
 
 from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.action import ExecuteMotion
-from qulido_robot_msgs.srv import CleanUpTrigger
-
+from qulido_robot_msgs.action import CleanUp
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
 
 pick_pose = [0.004, -15.49, 103.192, 0.041, 92.317, 90.012] # joint
@@ -24,18 +25,18 @@ class CleanUpNode(Node):
         super().__init__('clean_up_node')
 
         # ---------- Service Server ----------
-        self.srv = self.create_service(
-            CleanUpTrigger,
+        self.action_server = ActionServer(
+            self,
+            CleanUp,
             '/clean_up',
-            self.on_cleanup_request
+            execute_callback=self.execute_cleanup,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
         )
 
         # ---------- Clients ----------
         self.vision_client = self.create_client(GetBoardState, "/vision/get_board_state")
         self.motion_client = ActionClient(self, ExecuteMotion, "/execute_motion")
-
-        # -----------Publisher---------
-        self.end_pub = self.create_publisher(Bool, '/clean_up_finished', 10)
 
         # ---------- State ----------
         self._active = False
@@ -66,12 +67,12 @@ class CleanUpNode(Node):
             [230.446, 162.316, 54.292, 123.353, 179.93, -146.878]
         ]
         self.player_wall_init_pose = [
-            [563.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-            [533.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-            [503.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-            [473.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-            [443.29, 257.90, 58.06, 99.04, -179.72, 98.55],
-            [413.29, 257.90, 58.06, 99.04, -179.72, 98.55]
+            [563.29, 267.90, 58.06, 99.04, -179.72, 98.55],
+            [533.29, 267.90, 58.06, 99.04, -179.72, 98.55],
+            [503.29, 267.90, 58.06, 99.04, -179.72, 98.55],
+            [473.29, 267.90, 58.06, 99.04, -179.72, 98.55],
+            [443.29, 267.90, 58.06, 99.04, -179.72, 98.55],
+            [413.29, 267.90, 58.06, 99.04, -179.72, 98.55]
         ]
 
         self.AI_pawn_init_pose = [292.34, 9.96, 69.72, 41.50, -179.47, 41.56]
@@ -93,30 +94,53 @@ class CleanUpNode(Node):
         msg = String()
         msg.data = text
         self.get_logger().info(text)
-    # ==================================================
-    # Service Entry
-    # ==================================================
-    def on_cleanup_request(self, request, response):
-        self.get_logger().info("Cleanup requested")
 
-        # 하고 있는데 또 받는 거 방지용
+    def goal_callback(self, goal_request):
+        self.get_logger().info(
+            f"CleanUp goal received (wall_used={goal_request.wall_used})"
+        )
+
         if self._active:
-            response.success = False
-            response.message = "Cleanup already running"
-            return response
-        
-        self.wall_used = request.wall_used
+            self.get_logger().warn("Cleanup already running → reject")
+            return GoalResponse.REJECT
 
-        self.log(f"request received. wall_used = {self.wall_used}")
+        return GoalResponse.ACCEPT
+
+
+    def cancel_callback(self, goal_handle):
+        self.get_logger().warn("Cleanup cancel requested")
+        return CancelResponse.ACCEPT
+    
+    # ==================================================
+    # Action Entry
+    # ==================================================
+    def execute_cleanup(self, goal_handle):
+        self.get_logger().info("🚀 Cleanup action started")
+
         self._active = True
-        self._response = response
+        self.cleanup_done = False
+        self.wall_used = goal_handle.request.wall_used
+
         self._clean_up_initialized = False
-        self.motion_goal_future = None
-        self.motion_result_future = None
-        self.vision_future = None
+        self._clean_up_started = False
+
         self.main_timer = self.create_timer(0.1, self.plan_clean_up_motion)
-        response.success = True
-        return response
+
+        # ⛔️ blocking loop (하지만 executor는 멀티스레드!)
+        while rclpy.ok() and not self.cleanup_done:
+            time.sleep(0.05)
+
+            if goal_handle.is_cancel_requested:
+                self.get_logger().warn("Cleanup canceled")
+                result = CleanUp.Result()
+                result.success = False
+                return result
+
+        goal_handle.succeed()   
+        result = CleanUp.Result()
+        result.success = True
+        result.message = "Cleanup finished successfully"
+        return result
 
     # ==================================================
     # Step 1: Move to detection pose
@@ -186,7 +210,13 @@ class CleanUpNode(Node):
             self.obj_cnt = len(self.seq_list)
             if self.obj_cnt == 0:
                 self.log("Nothing to clean → finish")
-                self._clean_up_started = False
+
+                self.cleanup_done = True   # ✅ 추가
+                self._active = False
+
+                if self.main_timer:
+                    self.main_timer.cancel()
+                    self.main_timer = None
                 return
             
             # 🔴 main 타이머 끄기
@@ -239,9 +269,7 @@ class CleanUpNode(Node):
                 if self.now_obj == self.obj_cnt - 1:
                     self.log(f"End Cleaning")
 
-                    msg = Bool()
-                    msg.data = True
-                    self.end_pub.publish(msg)
+                    self.cleanup_done = True
 
                     self.seq_list = []
                     self._clean_up_started = False
@@ -249,6 +277,10 @@ class CleanUpNode(Node):
                     if self.robot_timer:
                         self.robot_timer.cancel()
                         self.robot_timer = None
+                    if self.main_timer:
+                        self.main_timer.cancel()
+                        self.main_timer = None
+
                     return
                 self.now_obj += 1
 
@@ -391,7 +423,9 @@ class CleanUpNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = CleanUpNode()
-    rclpy.spin(node)
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
+    executor.spin()
     node.destroy_node()
     rclpy.shutdown()
 

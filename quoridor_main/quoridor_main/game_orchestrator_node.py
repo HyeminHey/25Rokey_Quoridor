@@ -17,6 +17,7 @@ from qulido_robot_msgs.msg import MotionPrimitive, MotionSequence
 from qulido_robot_msgs.srv import GetBoardState
 from qulido_robot_msgs.srv import AiCompute
 from qulido_robot_msgs.srv import FixRuleBreak
+from qulido_robot_msgs.action import CleanUp
 
 
 BOARD_X_MIN = 270
@@ -54,35 +55,29 @@ class GameOrchestratorNode(Node):
         self.declare_parameter("ai_service", "/ai_agent/get_robot_move")
         self.declare_parameter("motion_action", "/execute_motion")
         self.declare_parameter("rule_break_service", "/fix_rule_break")
+        self.declare_parameter("clean_up_action", "/clean_up")
 
         self.wake_srv = self.get_parameter("wake_service").value
         self.speech_srv = self.get_parameter("speech_service").value
         self.vision_srv = self.get_parameter("vision_service").value
         self.ai_srv = self.get_parameter("ai_service").value
         self.motion_action_name = self.get_parameter("motion_action").value
-        rule_break_srv = self.get_parameter("rule_break_service").value
+        self.rule_break_srv = self.get_parameter("rule_break_service").value
+        self.clean_up_action_name = self.get_parameter("clean_up_action").value
 
         # ---------- Pub ----------
         self.difficulty_pub = self.create_publisher(Int32, "/game_level", 10)
         self.state_pub = self.create_publisher(String, '/now_game_state', 10)
-
-        # ---------- Sub ----------
-
-        self.game_finished_sub = self.create_subscription(
-            String,
-            "/game_finished",
-            self.game_finished_callback,
-            10
-        )
 
         # ---------- Clients ----------
         self.wake_client = self.create_client(Trigger, self.wake_srv)
         self.speech_client = self.create_client(Trigger, self.speech_srv)
         self.vision_client = self.create_client(GetBoardState, self.vision_srv)
         self.ai_client = self.create_client(AiCompute, self.ai_srv)
-        self.rule_break_client = self.create_client(FixRuleBreak,rule_break_srv)
+        self.rule_break_client = self.create_client(FixRuleBreak,self.rule_break_srv)
 
         self.motion_client = ActionClient(self, ExecuteMotion, self.motion_action_name)
+        self.clean_up_client = ActionClient(self, CleanUp, self.clean_up_action_name)
 
         # ---------- FSM ----------
         self.state = OrchestratorState.WAIT_WAKE
@@ -96,6 +91,8 @@ class GameOrchestratorNode(Node):
 
         self.motion_goal_future = None
         self.motion_result_future = None
+        self.cleanup_goal_future = None
+        self.cleanup_result_future = None
 
         # ---------- Game Data ----------
         self.game_state = [[1, 6, 3], [-1, 0, 3]]
@@ -106,6 +103,7 @@ class GameOrchestratorNode(Node):
         self.game_winner = None
         self._human_turn_initialized = False  # Human Turn 진입 시 메시지/vision 호출용
         self._awaiting_final_state = False    # end turn 후 vision 대기용
+        self.pending_cleanup = False  # 로봇 움직임 후 CLEAN_UP 여부
         self.wall_used=0
 
         self.camera_pose = [-29.062, -49.05, 96.263, 13.934, 106.247, 68.124] # joint
@@ -183,7 +181,6 @@ class GameOrchestratorNode(Node):
 
 
             # ---------------- HUMAN_TURN ----------------
-# ---------------- HUMAN_TURN ----------------
             elif self.state == OrchestratorState.HUMAN_TURN:
                 msg = String()
                 msg.data = self.state.name
@@ -315,13 +312,32 @@ class GameOrchestratorNode(Node):
                     self.ai_future = None
                     self.robot_cmd = res.ai_cmd
 
-                    # 🚫 규칙 위반 판정은 여기서!
-                    if self.robot_cmd and self.robot_cmd[0] == 0:
+                    # ================= 승패 판정 =================
+
+                    # 🧍 사람 승리 → 즉시 CLEAN_UP
+                    if self.robot_cmd == [0, 0, 0]:
+                        self.log("🏆 Player wins → CLEAN_UP")
+                        self.game_winner = "player"
+                        self.cleanup_goal_future = None
+                        self.cleanup_result_future = None
+                        self.state = OrchestratorState.CLEAN_UP
+                        return
+
+                    # 🤖 로봇 승리 → 움직임은 수행, 끝나면 CLEAN_UP
+                    if self.robot_cmd[0] == -1 and self.robot_cmd[1] == 6:
+                        self.log("🏆 Robot will win after this move")
+                        self.game_winner = "ai"
+                        self.pending_cleanup = True   # ★ 중요
+                        self.state = OrchestratorState.ROBOT_PLAN
+                        return
+
+                    # 🚫 규칙 위반
+                    if self.robot_cmd and self.robot_cmd == [0, 0, -1]:
                         self.log("🚫 Rule break detected by AI → RULE_BREAK")
                         self.state = OrchestratorState.RULE_BREAK
                         return
 
-                    # ✅ 정상
+                    # ✅ 일반 진행
                     self.state = OrchestratorState.ROBOT_PLAN
 
 
@@ -394,14 +410,53 @@ class GameOrchestratorNode(Node):
                     self.motion_result_future = None
 
                     if result.success:
-                        self.log("Robot move done → HUMAN_TURN")
-                        self.state = OrchestratorState.HUMAN_TURN
-                    else:
-                        self.state = OrchestratorState.ERROR
+                        if self.pending_cleanup:
+                            self.log("🏁 Robot move finished → CLEAN_UP")
+                            self.pending_cleanup = False
+                            self.cleanup_goal_future = None
+                            self.cleanup_result_future = None
+                            self.state = OrchestratorState.CLEAN_UP
+                        else:
+                            self.log("Robot move done → HUMAN_TURN")
+                            self.state = OrchestratorState.HUMAN_TURN
 
             # ---------------- CLEAN_UP ----------------
             elif self.state == OrchestratorState.CLEAN_UP:
-                pass
+
+                if not self.clean_up_client.wait_for_server(timeout_sec=0.0):
+                    return
+
+                if self.cleanup_goal_future is None:
+                    goal = CleanUp.Goal()
+                    goal.wall_used = self.wall_used
+                    self.cleanup_goal_future = self.clean_up_client.send_goal_async(goal)
+                    return
+
+                if self.cleanup_goal_future.done() and self.cleanup_result_future is None:
+                    goal_handle = self.cleanup_goal_future.result()
+                    if not goal_handle.accepted:
+                        self.state = OrchestratorState.ERROR
+                        return
+                    self.cleanup_result_future = goal_handle.get_result_async()
+                    return
+
+                if self.cleanup_result_future and self.cleanup_result_future.done():
+                    result = self.cleanup_result_future.result().result
+                    self.cleanup_goal_future = None
+                    self.cleanup_result_future = None
+
+                    if result.success:
+                        self.wall_used = 0
+                        self.added = []
+                        self.robot_cmd = None
+                        self.robot_motion = None
+                        self.game_winner = None
+                        self.pending_cleanup = False
+                        self.state = OrchestratorState.WAIT_WAKE
+                    else:
+                        self.state = OrchestratorState.ERROR
+
+
             # ---------------- ERROR ----------------
             elif self.state == OrchestratorState.ERROR:
                 self.log("ERROR → resetting to WAIT_WAKE")
@@ -412,20 +467,6 @@ class GameOrchestratorNode(Node):
             self.state = OrchestratorState.ERROR
 
     # ==================================================
-
-    def game_finished_callback(self, msg: String):
-        """
-        /game_finished 토픽에서 AI 혹은 player 정보를 받아서
-        self.game_winner에 저장하고 CLEAN_UP 상태로 전환
-        """
-        winner = msg.data.strip().lower()
-        if winner in ["ai", "player"]:
-            self.game_winner = winner
-            self.log(f"Game finished → winner: {winner}")
-            self.state = OrchestratorState.CLEAN_UP
-        else:
-            self.get_logger().warn(f"Unknown winner message: {msg.data}")
-
 
     def publish_difficulty(self, difficulty_str: str):
         difficulty_map = {

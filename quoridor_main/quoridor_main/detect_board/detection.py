@@ -162,20 +162,6 @@ class ObjectDetectionNode(Node):
         return response
 
 
-        # #테스트용
-        # # 🔥 Int32Row[] 로 변환
-        # response.board_state = []
-        # for item in clean_board_array:
-        #     row = Int32Row()
-        #     row.data = item   # [type, r, c]
-        #     response.board_state.append(row)
-
-        # self.get_logger().info(
-        #     f"📤 Vision response: {[r.data for r in response.board_state]}"
-        # )
-        # return response
-
-
     def process_scene(self):
         detections = self.model.get_fused_segment_centers(self.img_node)
 

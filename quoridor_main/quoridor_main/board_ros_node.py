@@ -165,12 +165,20 @@ class BoardRosNode(Node):
 
         # finished
         if type(self.board.won_player) == int:
-            response.ai_cmd = [0, 0, 0]
             msg = String()
             if self.board.won_player == 0:
+                response.ai_cmd = [0, 0, 0]
                 msg.data = "player"
             elif self.board.won_player == 1:
-                msg.data = "AI"
+                if act_suc is None:
+                    ai_act = self.board.ai_action
+                    if isinstance(ai_act, ActionMovePawn):
+                        ai_t = -1
+                        ai_r = ai_act.dest.row
+                        ai_c = ai_act.dest.col
+                    res_list = [ai_t, ai_r, ai_c]
+                    response.ai_cmd = res_list
+                    msg.data = "AI"
             self.pub.publish(msg)
             self.get_logger().info(f"Game Finished Topic published. Winner is {msg.data}")            
 

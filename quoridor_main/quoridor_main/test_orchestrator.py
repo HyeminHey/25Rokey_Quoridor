@@ -104,7 +104,7 @@ class GameOrchestratorNode(Node):
         self._human_turn_initialized = False  # Human Turn 진입 시 메시지/vision 호출용
         self._awaiting_final_state = False    # end turn 후 vision 대기용
         self.pending_cleanup = False  # 로봇 움직임 후 CLEAN_UP 여부
-        self.wall_used=0
+        self.wall_used=2
 
         self.camera_pose = [-29.062, -49.05, 96.263, 13.934, 106.247, 68.124] # joint
         self.pose_home = [0.0, 0.0, 90.0, 0.0, 90.0, 0.0] # joint

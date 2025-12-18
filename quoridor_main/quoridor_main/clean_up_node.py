@@ -388,7 +388,7 @@ class CleanUpNode(Node):
     def set_wall_pose(self, x, y, orientation, angle=None):
         x = float(x)
         y = float(y)
-        z = 50.0
+        z = 53.0
         rx, ry, rz = pick_pose_l[3:]
 
         if orientation == "horizontal":

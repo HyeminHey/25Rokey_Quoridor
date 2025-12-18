@@ -16,8 +16,9 @@ import sys
 ROBOT_ID = "dsr01"
 ROBOT_MODEL = "m0609"
 VELOCITY_J = 80
-VELOCITY_L = 120
-ACC = 60
+VELOCITY_L = 200
+ACC_J = 60
+ACC_L = 100
 GRIPPER_NAME = "rg2"
 TOOLCHARGER_IP = "192.168.1.1"
 TOOLCHARGER_PORT = "502"
@@ -33,7 +34,7 @@ try:
     from DSR_ROBOT2 import (
         movel, movej, DR_FC_MOD_REL, release_compliance_ctrl, release_force,
         check_force_condition, task_compliance_ctrl, wait, posj, posx,
-        set_desired_force, set_ref_coord, DR_AXIS_Z,
+        set_desired_force, set_ref_coord, DR_AXIS_Z, DR_MV_MOD_ABS, DR_MV_RA_DUPLICATE,
     )
 except ImportError as e:
     print(f"Error importing DSR_ROBOT2: {e}")
@@ -126,8 +127,8 @@ class RobotCtrlNode(Node):
         )
 
         # TODO: replace with IK + controller
-        movej(posj([j1, j2, j3, j4, j5, j6]), vel=VELOCITY_J, acc=ACC)
-        wait(1.0)
+        movej(posj([j1, j2, j3, j4, j5, j6]), vel=VELOCITY_J, acc=ACC_J, radius=20.0, mod=DR_MV_MOD_ABS, ra=DR_MV_RA_DUPLICATE)
+        # wait(1.0)
         return True
 
     def do_movel(self, pose_list):
@@ -145,8 +146,8 @@ class RobotCtrlNode(Node):
         )
 
         # TODO: replace with IK + controller
-        movel(posx([x, y, z, r, p, yaw]), vel=VELOCITY_L, acc=ACC)
-        wait(1.0)
+        movel(posx([x, y, z, r, p, yaw]), vel=VELOCITY_L, acc=ACC_L, radius=20.0, mod=DR_MV_MOD_ABS, ra=DR_MV_RA_DUPLICATE)
+        # wait(1.0)
         return True
 
     def do_gripper(self, open_width):

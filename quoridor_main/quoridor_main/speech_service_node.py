@@ -84,6 +84,10 @@ class SpeechServiceNode(Node):
 "끝" → end|none
 "pass" → end|none
 "날씨 좋네" → none|none
+"니 차례야" → end
+"점심 다 먹었어" → none
+"나 다했어" → end
+"숙제 끝났다" → none
 
 입력: "{user_input}"
 답변 (명령어|난이도 형식으로만):"""

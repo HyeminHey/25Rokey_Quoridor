@@ -101,6 +101,7 @@ class GameOrchestratorNode(Node):
         self.robot_cmd = None
         self.robot_motion = None
         self.game_winner = None
+        self.cleanup_enter_time = None
         self._human_turn_initialized = False  # Human Turn 진입 시 메시지/vision 호출용
         self._awaiting_final_state = False    # end turn 후 vision 대기용
         self.pending_cleanup = False  # 로봇 움직임 후 CLEAN_UP 여부
@@ -423,6 +424,20 @@ class GameOrchestratorNode(Node):
             # ---------------- CLEAN_UP ----------------
             elif self.state == OrchestratorState.CLEAN_UP:
 
+
+                if self.cleanup_enter_time is None:
+                    self.cleanup_enter_time = self.get_clock().now()
+                    self.log("🧹 CLEAN_UP entered → waiting 3 seconds before cleanup")
+                    return
+
+                # 🔹 3초 대기
+                elapsed = (
+                    self.get_clock().now() - self.cleanup_enter_time
+                ).nanoseconds / 1e9
+
+                if elapsed < 3.0:
+                    return  # 아직 기다리는 중
+                
                 if not self.clean_up_client.wait_for_server(timeout_sec=0.0):
                     return
 
@@ -444,6 +459,7 @@ class GameOrchestratorNode(Node):
                     result = self.cleanup_result_future.result().result
                     self.cleanup_goal_future = None
                     self.cleanup_result_future = None
+                    self.cleanup_enter_time = None
 
                     if result.success:
                         self.wall_used = 0

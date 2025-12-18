@@ -32,7 +32,7 @@ DEF_ROWS = 7
 DEF_COLS = 7
 
 # Number of Walls per player
-NUM_WALLS = 1
+NUM_WALLS = 6
 
 # Messages Font
 WHO_SIZE = 50

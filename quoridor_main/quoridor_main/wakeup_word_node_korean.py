@@ -11,7 +11,10 @@ import os
 import struct
 import time
 import rclpy
+import threading
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
 import pyaudio
 import pvporcupine
 from dotenv import load_dotenv
@@ -82,11 +85,13 @@ class WakeupWordNode(Node):
             self.get_logger().error(f"❌ 패키지 경로 오류: {e}")
             raise
 
+        self.group = ReentrantCallbackGroup()
 
         self.wake_service = self.create_service(
             Trigger,
             self.wake_srv,
-            self.handle_wake_request
+            self.handle_wake_request,
+            callback_group=self.group
         )
 
         self.get_logger().info(f"✅ Wakeup Service 서버 생성: {self.wake_srv}")
@@ -160,6 +165,11 @@ class WakeupWordNode(Node):
         self.language = language
         self.listening = False
 
+        self.timer = self.create_timer(0.01, self.audio_process_timer, callback_group=self.group)
+        self.lock = threading.Lock()
+
+        self.is_listening = False
+        self.detected = False
 
         # 언어별 안내 메시지
         wakeup_phrase = "헤이 쿼리" if language == "ko" else "Hello Query"
@@ -170,47 +180,70 @@ class WakeupWordNode(Node):
         self.get_logger().info(f"   Test Orchestrator 연동 준비 완료")
         self.get_logger().info("="*60)
 
+    def flush_audio(self):
+        """Lock을 사용하여 안전하게 버퍼를 비움"""
+        with self.lock:  # 락 획득
+            try:
+                num_frames = self.stream.get_read_available()
+                if num_frames > 0:
+                    self.stream.read(num_frames, exception_on_overflow=False)
+            except Exception as e:
+                self.get_logger().warn(f"Buffer flush error: {e}")
+    def audio_process_timer(self):
+    # 락을 한 번만 걸어서 전체 프로세스를 보호합니다.
+        with self.lock:
+            try:
+                if not self.is_listening:
+                    # 청취 중이 아닐 때는 버퍼를 비우기만 함
+                    num_frames = self.stream.get_read_available()
+                    if num_frames > 0:
+                        self.stream.read(num_frames, exception_on_overflow=False)
+                    return
+
+                # 청취 중일 때: 프레임이 충분한지 확인
+                if self.stream.get_read_available() < self.porcupine.frame_length:
+                    return
+
+                # 실제 데이터 읽기 및 처리
+                pcm = self.stream.read(self.porcupine.frame_length, exception_on_overflow=False)
+                pcm = struct.unpack_from("h" * self.porcupine.frame_length, pcm)
+                
+                result = self.porcupine.process(pcm)
+                if result >= 0:
+                    self.get_logger().info("🔔 WAKEUP WORD DETECTED!")
+                    self.detected = True
+                    self.is_listening = False
+                    
+            except Exception as e:
+                # 오디오 장치 일시적 오류는 로그만 남기고 무시
+                # self.get_logger().debug(f"Audio processing skipped: {e}")
+                pass
 
     def handle_wake_request(self, request, response):
-        self.get_logger().info("🔔 Wakeup 요청 수신 → 청취 시작")
+        """서비스 콜백: 요청이 오면 감지될 때까지 대기"""
+        self.get_logger().info("🔔 Wakeup 요청 수신 -> 감지 시작")
+        
+        # 이전 감지 기록 초기화 및 버퍼 비우기
+        self.detected = False
+        self.flush_audio() 
+        self.is_listening = True
 
-        self.listening = True
-        self.detection_count = 0
+        # 감지될 때까지 루프 (MultiThreadedExecutor 덕분에 타이머 콜백은 계속 동작함)
+        start_time = time.time()
+        timeout = 30.0  # 필요시 타임아웃 설정
+        
+        while rclpy.ok() and self.is_listening:
+            if self.detected:
+                break
+            if (time.time() - start_time) > timeout:
+                self.is_listening = False
+                response.success = False
+                response.message = "timeout"
+                return response
+            time.sleep(0.01)
 
-        try:
-            while rclpy.ok() and self.listening:
-                pcm = self.stream.read(
-                    self.porcupine.frame_length,
-                    exception_on_overflow=False
-                )
-                pcm = struct.unpack_from(
-                    "h" * self.porcupine.frame_length, pcm
-                )
-
-                keyword_index = self.porcupine.process(pcm)
-
-                if keyword_index >= 0:
-                    self.detection_count += 1
-                    self.listening = False
-
-                    wakeup_phrase = "헤이 쿼리" if self.language == "ko" else "Hello Query"
-
-                    self.get_logger().info("=" * 60)
-                    self.get_logger().info(f"🔔 WAKEUP WORD 감지! ({wakeup_phrase})")
-                    self.get_logger().info("=" * 60)
-
-                    response.success = True
-                    response.message = "awake"
-
-                    return response
-
-                time.sleep(0.01)  # CPU 보호용
-
-        except Exception as e:
-            self.get_logger().error(f"Wakeup 처리 중 오류: {e}")
-
-        response.success = False
-        response.message = "failed"
+        response.success = True
+        response.message = "awake"
         return response
 
 
@@ -237,13 +270,15 @@ def main(args=None):
 
     try:
         node = WakeupWordNode()
-        rclpy.spin(node)
+        executor = MultiThreadedExecutor()
+        executor.add_node(node)
+        try:
+            executor.spin()
+        finally:
+            node.destroy_node()
+            executor.shutdown()
     except KeyboardInterrupt:
-        print("\n👋 사용자 종료")
-    except Exception as e:
-        print(f"\n❌ 노드 오류: {e}")
-        import traceback
-        traceback.print_exc()
+        pass
     finally:
         rclpy.shutdown()
 

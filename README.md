@@ -3,12 +3,25 @@
 ## 📌 프로젝트 소개
 - Quoridor 게임을 두는 AI 로봇 구현
 - Quoridor 게임을 연습하는 튜토리얼 AI 로봇
-
+  
 ## 🛠 기술 스택
-- Language: Python
-- Framework: Ros2 Humble
-- Library:
-- Tool: Doosan M0609
+
+- **Language**
+  - Python 3.10.12
+
+- **Framework / Middleware**
+  - ROS2 Humble
+
+- **AI / LLM**
+  - OpenAI API
+  - LangChain
+
+- **Robot Hardware**
+  - Doosan Robotics M0609
+
+- **OS / Environment**
+  - Ubuntu (ROS2 Humble)
+
 
 ## ⚙️ 주요 기능
 - 기능 1

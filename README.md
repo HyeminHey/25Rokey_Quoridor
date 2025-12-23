@@ -1,15 +1,14 @@
-# 프로젝트 이름
-25Rokey_Quoridor
+# 25Rokey_Quoridor
 
 ## 📌 프로젝트 소개
 - Quoridor 게임을 두는 AI 로봇 구현
 - Quoridor 게임을 연습하는 튜토리얼 AI 로봇
 
 ## 🛠 기술 스택
-- Language:
-- Framework:
+- Language: Python
+- Framework: Ros2 Humble
 - Library:
-- Tool:
+- Tool: Doosan M0609
 
 ## ⚙️ 주요 기능
 - 기능 1

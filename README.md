@@ -40,10 +40,7 @@
 - 게임 종료 시 게임 시작 초기 상태로 로봇 팔이 보드, 장벽 및 말 정리
 
 ## 🧠 시스템 구조 / 흐름
-
-
-## 📷 실행 화면
-- 이미지 또는 GIF
+<img width="1190" height="290" alt="Image" src="https://github.com/user-attachments/assets/03de4e21-0e1d-407c-93d0-c609f3f4edb2" />
 
 ## 👤 담당 역할
 - Quoridor game computing algorithm과 ROS2 연동
@@ -57,9 +54,9 @@
 - 성공적 작동 확인
 
 ## 🚀 실행 방법
-- M0609 Launch 실행
+- M0609 Launch 실행  
   : $ ros2 launch dsr_bringup2 dsr_bringup2_rviz.launch.py mode:=real host:=192.168.1.100 port:=12345 model:=m0609
-- Realsense Launch 실행
+- Realsense Launch 실행  
   : $ ros2 launch realsense2_camera rs_align_depth_launch.py depth_module.depth_profile:=640x480x30 rgb_camera.color_profile:=640x480x30 initial_reset:=true align_depth.enable:=true enable_rgbd:=true pointcloud.enable:=true
-- quoridor.launch.py 실행
+- quoridor.launch.py 실행  
   : $ ros2 launch quoridor_main quoridor.launch.py

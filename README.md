@@ -1,57 +1,74 @@
 # 25Rokey_Quoridor
 
 ## 📌 프로젝트 소개
-- Quoridor 보드게임을 플레이하는 AI 로봇 시스템 구현
-- AI가 게임 규칙을 이해하고 전략적으로 수를 계산하여 로봇 팔이 실제 보드 위에서 말을 이동
-- 초보자를 위한 튜토리얼/연습용 AI 모드 제공
-  
+- Quoridor 보드게임을 플레이하는 **AI 로봇 시스템** 구현
+- AI가 게임 규칙을 이해하고 전략적으로 수를 계산하여,  
+  로봇 팔이 실제 보드 위에서 말을 이동
+- 초보자를 위한 **튜토리얼 및 연습용 AI 모드** 제공
+
+---
+
 ## 🛠 기술 스택
-- **Language**
-  - Python 3.10.12
 
-- **Framework / Middleware**
-  - ROS2 Humble
- 
-- **OS / Development Environment**
-  - Ubuntu 22.04 (ROS 2 Humble 기반)
+### **Language**
+- Python 3.10.12
 
-- **AI / LLM**
-  - OpenAI API
-  - LangChain
-  - Ultralytics YOLO
+### **Framework / Middleware**
+- ROS 2 Humble
 
-- **Robot Hardware**
-  - Doosan Robotics M0609
-  - End-Effector (Gripper)
-  - Intel Realsense Depth Camera
+### **OS / Development Environment**
+- Ubuntu 22.04 (ROS 2 Humble 기반)
 
-- **Software / Library**
-  - Pygame
-  - PyAudio Analysis
+### **AI / Vision**
+- OpenAI API
+- LangChain
+- Ultralytics YOLO
 
-- **Collaboration Tools**
-  - GitHub
-  - Slack
+### **Robot Hardware**
+- Doosan Robotics M0609
+- End-Effector (Gripper)
+- Intel RealSense Depth Camera
 
+### **Software / Library**
+- Pygame
+- PyAudio
+
+### **Collaboration Tools**
+- GitHub
+- Slack
+
+---
 
 ## ⚙️ 주요 기능
-- 음성인식으로 Quori 실행 및 난이도 설정
-- AI가 게임 규칙을 이해하고 전략적으로 수를 계산하여 로봇 팔이 실제 보드 위에서 말을 이동
-- 게임 종료 시 게임 시작 초기 상태로 로봇 팔이 보드, 장벽 및 말 정리
+- 음성 인식을 통한 Quoridor 게임 실행 및 난이도 설정
+- AI가 게임 규칙을 이해하고 전략적으로 수를 계산하여  
+  로봇 팔이 실제 보드 위에서 말 이동
+- 게임 종료 시, 보드·장벽·말을 초기 상태로 정리하는 자동 정리 시퀀스 수행
+
+---
 
 ## 🧠 시스템 구조 / 흐름
-<img width="1190" height="290" alt="Image" src="https://github.com/user-attachments/assets/03de4e21-0e1d-407c-93d0-c609f3f4edb2" />
+<img width="1190" height="290" alt="System Architecture" src="https://github.com/user-attachments/assets/03de4e21-0e1d-407c-93d0-c609f3f4edb2" />
+
+---
 
 ## 👤 담당 역할
-- Quoridor game computing algorithm과 ROS2 연동
+- Quoridor 게임 로직 및 AI 전략 알고리즘 구현
+- ROS 2 기반 게임 로직–로봇 제어 연동
 - Game UI 제작
-- 게임 종료 후 정리 시퀀스 구조 제작
-- 로봇 움직임 최적화 작업
-- Object Detection 최적화 작업 (x y 좌표 및 orientation)
-- Integration 작업 진행
+- 게임 종료 후 정리(Reset) 시퀀스 구조 설계
+- 로봇 모션 최적화
+- Object Detection 성능 최적화  
+  (좌표 보정 및 Orientation 계산)
+- 전체 시스템 Integration 담당
+
+---
 
 ## 📈 결과 및 성과
-- 성공적 작동 확인
+- 실제 로봇 환경에서 Quoridor 게임의 **안정적인 자동 플레이** 구현
+- AI 판단 → 로봇 제어 → 보드 상호작용까지의 **엔드투엔드 시스템 검증 완료**
+
+---
 
 ## 🚀 실행 방법
 - M0609 Launch 실행  
